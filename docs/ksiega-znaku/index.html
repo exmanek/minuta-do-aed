@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Księga znaku – Minuta do AED</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4 landscape; margin: 0; }
+  :root { --red: #E00A0A; --blue: #1A0CDA; --ink: #0F172A; --muted: #475569; --bg: #F4F6FA; --line: #CBD5E1; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; background: #888; font: 400 11pt/1.5 'Archivo', system-ui, sans-serif; color: var(--ink); }
+  .page { width: 297mm; height: 210mm; padding: 16mm 18mm 14mm; background: #fff; position: relative; overflow: hidden; page-break-after: always; margin: 0 auto 8mm; display: flex; flex-direction: column; }
+  @media print { html, body { background: #fff; } .page { margin: 0; } }
+  .head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--ink); padding-bottom: 3mm; margin-bottom: 8mm; }
+  .head h2 { font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 20pt; margin: 0; letter-spacing: -.01em; }
+  .head span { font-size: 9pt; color: var(--muted); }
+  .foot { margin-top: auto; display: flex; justify-content: space-between; font-size: 8pt; color: var(--muted); padding-top: 3mm; border-top: 1px solid var(--line); }
+  p { margin: 0 0 3mm; } .small { font-size: 9pt; color: var(--muted); } .mono { font-family: 'JetBrains Mono', monospace; }
+  h3 { font-size: 9pt; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 2mm; }
+
+  /* znak: wycięty do obszaru rysunku (bez przezroczystych marginesów pliku PNG 1204×572) */
+  .art { aspect-ratio: 1190 / 540; background: url(../../frontend/public/logo.png) 85.714% 93.75% / 101.176% auto no-repeat; }
+  .mono-black { filter: brightness(0); } .mono-white { filter: brightness(0) invert(1); }
+
+  .cover { justify-content: center; align-items: center; text-align: center; }
+  .cover .art { width: 150mm; margin: 0 auto 14mm; }
+  .cover h1 { font-family: 'Archivo Black', sans-serif; font-weight: 400; font-size: 34pt; margin: 0 0 3mm; }
+  .cover .bar { width: 40mm; height: 3mm; background: var(--red); margin: 0 auto 6mm; }
+  .cols { display: grid; gap: 12mm; flex: 1; min-height: 0; }
+  .c2 { grid-template-columns: 1fr 1fr; } .c3 { grid-template-columns: repeat(3, 1fr); }
+  .concept { font-size: 15pt; line-height: 1.55; } .concept p { margin-bottom: 5mm; }
+  .concept b.r { color: var(--red); } .concept b.b { color: var(--blue); }
+
+  .swatch { border: 1px solid var(--line); border-radius: 3mm; overflow: hidden; display: flex; flex-direction: column; }
+  .swatch .chip { height: 48mm; display: flex; align-items: flex-end; padding: 4mm; color: #fff; font-family: 'Archivo Black'; font-size: 14pt; }
+  .swatch dl { margin: 0; padding: 4mm; display: grid; grid-template-columns: auto 1fr; gap: 1mm 4mm; font-size: 9.5pt; }
+  .swatch dt { color: var(--muted); } .swatch dd { margin: 0; }
+
+  .zone { position: relative; padding: 13.2mm; border: 0.4mm dashed var(--red); width: fit-content; }
+  .zone .art { width: 110mm; outline: 0.2mm solid var(--line); }
+  .zone .x { position: absolute; font: 600 10pt 'JetBrains Mono'; color: var(--red); }
+  .zone .x.t { top: 3.2mm; left: 50%; } .zone .x.l { left: 4.5mm; top: 50%; } .zone .x.r { right: 4.5mm; top: 50%; } .zone .x.b { bottom: 3.2mm; left: 50%; }
+  .measure { position: absolute; left: calc(13.2mm + 0mm); top: calc(13.2mm + 0.5mm); height: 13.2mm; width: 110mm; border-top: 0.3mm solid var(--blue); border-bottom: 0.3mm solid var(--blue); opacity: .0; }
+
+  .minrow { display: flex; align-items: flex-end; gap: 14mm; margin: 4mm 0 6mm; }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; flex: 1; min-height: 0; grid-auto-rows: 1fr; margin-bottom: 5mm; }
+  .tile { border: 1px solid var(--line); border-radius: 3mm; display: flex; flex-direction: column; overflow: hidden; }
+  .tile .stage { flex: 1; display: flex; align-items: center; justify-content: center; padding: 5mm; position: relative; min-height: 0; }
+  .tile .stage .art { width: 52mm; }
+  .tile .cap { padding: 2.5mm 4mm 3mm; font-size: 9pt; border-top: 1px solid var(--line); background: #fff; }
+  .tile .cap b { color: var(--red); }
+  .tile .no { position: absolute; top: 2mm; right: 2.5mm; width: 7mm; height: 7mm; border-radius: 50%; background: var(--red); color: #fff; font: 800 11pt/7mm 'Archivo'; text-align: center; }
+  .tile.ok .no { background: #15803d; }
+  .stripes { background: repeating-linear-gradient(45deg, #f59e0b 0 6mm, #0ea5e9 6mm 12mm, #16a34a 12mm 18mm); }
+  .badge-beta { position: absolute; right: 7mm; top: 12mm; background: #facc15; color: #000; font: 800 9pt 'Archivo'; padding: 1mm 3mm; border-radius: 2mm; }
+  table { border-collapse: collapse; width: 100%; font-size: 9.5pt; } th, td { text-align: left; padding: 2mm 3mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 8pt; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .topbar { border: 1px solid var(--line); border-radius: 3mm; height: 20mm; display: flex; align-items: center; padding: 0 6mm; gap: 8mm; background: #fff; }
+  .topbar .art { height: 11mm; aspect-ratio: 1190/540; }
+  .pill { background: var(--red); color: #fff; font-weight: 600; font-size: 9pt; padding: 1.5mm 4mm; border-radius: 99px; margin-left: auto; }
+  .hc { background: #000; padding: 4mm 6mm; border-radius: 3mm; display: flex; align-items: center; gap: 6mm; color: #fff; font-size: 9pt; }
+  .hc .tileW { background: #fff; padding: 1.5mm 3mm; border-radius: 1.5mm; } .hc .art { height: 11mm; }
+</style>
+</head>
+<body>
+
+<!-- 1. Okładka -->
+<section class="page cover">
+  <div class="art" role="img" aria-label="Logo Minuta do AED"></div>
+  <div class="bar"></div>
+  <h1>Księga znaku</h1>
+  <p style="font-size:13pt">Akcja „Minuta do AED” w ramach zadania „Misja AED – Dane na ratunek”</p>
+  <p class="small">HackNation 2026 · wersja 1.0 · 22 listopada 2026<br>Znak funkcjonuje bez hasła – hasło akcji nie zostało ustalone i nie należy go dopisywać do znaku.</p>
+</section>
+
+<!-- 2. Koncepcja -->
+<section class="page">
+  <div class="head"><h2>Koncepcja znaku</h2><span>Minuta do AED · księga znaku</span></div>
+  <div class="cols c2" style="align-items:center">
+    <div class="concept">
+      <p>Znak łączy nazwę akcji z obietnicą czasu: niebieskie <b class="b">„Minuta do”</b> zapowiada, a masywne, czerwone <b class="r">„AED”</b> jest celem, do którego prowadzi każda minuta.</p>
+      <p>Czerwień kojarzy się z ratowaniem życia i z oznaczeniami defibrylatorów, błękit – z zaufaniem, instytucją i otwartymi danymi z portalu dane.gov.pl.</p>
+      <p>Błyskawica wycięta w literze „D” oznacza impuls defibrylatora i szybkość reakcji.</p>
+      <p>Gruby, zwarty krój bezszeryfowy i dwie barwy zapewniają czytelność z daleka oraz na małych ekranach – w aplikacji, w materiałach informacyjnych i w mediach społecznościowych.</p>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:center; background:var(--bg); border-radius:4mm; height:100%"><div class="art" style="width:100mm" role="img" aria-label="Logo"></div></div>
+  </div>
+  <div class="foot"><span>Minuta do AED – księga znaku</span><span>2</span></div>
+</section>
+
+<!-- 3. Kolorystyka -->
+<section class="page">
+  <div class="head"><h2>Kolorystyka</h2><span>Znak jest dwubarwny; błyskawica to wycięcie (przezroczystość), a nie biała wypełniona barwa</span></div>
+  <div class="cols c3" style="flex:none">
+    <div class="swatch"><div class="chip" style="background:var(--red)">Czerwień</div>
+      <dl><dt>HEX</dt><dd class="mono">#E00A0A</dd><dt>RGB</dt><dd class="mono">224 · 10 · 10</dd><dt>CMYK*</dt><dd class="mono">0 · 96 · 96 · 12</dd>
+      <dt>Rola</dt><dd>napis „AED” (ok. ⅔ powierzchni znaku)</dd><dt>Kontrast</dt><dd class="mono">4,98:1 na bieli</dd></dl></div>
+    <div class="swatch"><div class="chip" style="background:var(--blue)">Błękit</div>
+      <dl><dt>HEX</dt><dd class="mono">#1A0CDA</dd><dt>RGB</dt><dd class="mono">26 · 12 · 218</dd><dt>CMYK*</dt><dd class="mono">88 · 94 · 0 · 15</dd>
+      <dt>Rola</dt><dd>napis „Minuta do”</dd><dt>Kontrast</dt><dd class="mono">9,96:1 na bieli</dd></dl></div>
+    <div class="swatch"><div class="chip" style="background:#fff; color:var(--ink); border-bottom:1px solid var(--line)">Biel / przezroczystość</div>
+      <dl><dt>HEX</dt><dd class="mono">#FFFFFF</dd><dt>RGB</dt><dd class="mono">255 · 255 · 255</dd><dt>CMYK*</dt><dd class="mono">0 · 0 · 0 · 0</dd>
+      <dt>Rola</dt><dd>tło znaku i prześwit błyskawicy</dd><dt>Tło</dt><dd>także #F4F6FA (tło interfejsu)</dd></dl></div>
+  </div>
+  <div class="cols c2" style="margin-top:8mm; flex:none">
+    <div><h3>Kolory pomocnicze (tekst, interfejs)</h3>
+      <div style="display:flex; gap:4mm; align-items:center"><span style="width:14mm;height:14mm;background:var(--ink);border-radius:2mm"></span><span class="small"><b class="mono" style="color:var(--ink)">#0F172A</b><br>tekst, ciemne elementy</span>
+      <span style="width:14mm;height:14mm;background:var(--bg);border:1px solid var(--line);border-radius:2mm;margin-left:6mm"></span><span class="small"><b class="mono" style="color:var(--ink)">#F4F6FA</b><br>tło</span></div></div>
+    <div><h3>Zasady użycia barw</h3><p class="small">Nie łączyć czerwieni z błękitem bezpośrednio jako tła i napisu (kontrast <b>2,0:1</b>). Na ciemnym tle znak umieszczać na białej płytce: błękit na czerni ma kontrast tylko <b>2,1:1</b>, czerwień <b>4,2:1</b>.</p></div>
+  </div>
+  <p class="small" style="margin-top:6mm">* CMYK obliczono orientacyjnie z wartości RGB; przed drukiem należy wykonać próbę kolorystyczną w wybranej drukarni. Kontrasty obliczono wg formuły WCAG 2.1.</p>
+  <div class="foot"><span>Minuta do AED – księga znaku</span><span>3</span></div>
+</section>
+
+<!-- 4. Pole ochronne i minimalna wielkość -->
+<section class="page">
+  <div class="head"><h2>Pole ochronne i minimalna wielkość</h2><span>Miara: x = wysokość napisu „Minuta do”</span></div>
+  <div class="cols c2">
+    <div>
+      <h3>Pole ochronne</h3>
+      <div class="zone"><span class="x t">x</span><span class="x l">x</span><span class="x r">x</span><span class="x b">x</span><div class="art" role="img" aria-label="Logo z polem ochronnym"></div></div>
+      <p class="small" style="margin-top:4mm">Wokół znaku, od jego najbardziej wysuniętych krawędzi, należy zostawić wolne pole o szerokości <b>x</b> (ok. 12% szerokości znaku). W polu nie umieszczamy tekstu, grafik, krawędzi strony ani innych znaków.</p>
+    </div>
+    <div>
+      <h3>Minimalna wielkość</h3>
+      <div class="minrow">
+        <div><div class="art" style="width:80px" role="img" aria-label="Logo 80 px"></div><p class="small" style="margin-top:2mm"><b>Ekran:</b> 80 px szerokości</p></div>
+        <div><div class="art" style="width:25mm" role="img" aria-label="Logo 25 mm"></div><p class="small" style="margin-top:2mm"><b>Druk:</b> 25 mm szerokości</p></div>
+      </div>
+      <p class="small">Poniżej tych wielkości napis „Minuta do” przestaje być czytelny. Na mniejszych polach (np. ikona karty przeglądarki) należy użyć osobnego uproszczonego symbolu, który zostanie przygotowany, a nie pomniejszać pełnego znaku.</p>
+      <h3 style="margin-top:8mm">Proporcje</h3>
+      <p class="small">Stosunek szerokości do wysokości rysunku znaku wynosi <b class="mono">1190 : 540</b> (ok. 2,2 : 1). Znak zawsze skaluje się proporcjonalnie.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Minuta do AED – księga znaku</span><span>4</span></div>
+</section>
+
+<!-- 5. Wersje i tło -->
+<section class="page">
+  <div class="head"><h2>Wersje i tło</h2><span>Wersją podstawową jest znak dwubarwny na jasnym tle</span></div>
+  <div class="tiles" style="grid-template-columns: repeat(4,1fr); grid-auto-rows: 1fr">
+    <div class="tile ok"><div class="stage" style="background:#fff"><span class="no">✓</span><div class="art"></div></div><div class="cap"><b style="color:#15803d">Podstawowa</b> – na bieli i jasnych tłach (#F4F6FA)</div></div>
+    <div class="tile ok"><div class="stage" style="background:#0F172A"><span class="no">✓</span><div style="background:#fff;padding:13.2mm 7mm;border-radius:2mm;"><div class="art" style="width:36mm"></div></div></div><div class="cap"><b style="color:#15803d">Na ciemnym tle</b> – na białej płytce z polem ochronnym</div></div>
+    <div class="tile ok"><div class="stage" style="background:#fff"><span class="no">✓</span><div class="art mono-black"></div></div><div class="cap"><b style="color:#15803d">Jednobarwna czarna</b> – druk jednokolorowy, faks, pieczątka</div></div>
+    <div class="tile ok"><div class="stage" style="background:#111"><span class="no">✓</span><div class="art mono-white"></div></div><div class="cap"><b style="color:#15803d">Jednobarwna biała</b> – wyłącznie na ciemnym lub fotograficznym tle o dużym kontraście</div></div>
+  </div>
+  <p class="small" style="margin-top:6mm">Wersje jednobarwne powstają przez zamianę obu barw na jedną; wycięcie błyskawicy pozostaje przezroczyste. W aplikacji w trybie wysokiego kontrastu znak jest wyświetlany na białej płytce.</p>
+  <div class="foot"><span>Minuta do AED – księga znaku</span><span>5</span></div>
+</section>
+
+<!-- 6. Niedozwolone -->
+<section class="page">
+  <div class="head"><h2>Niedozwolone użycie znaku</h2><span>Przykłady zmian, których nie wolno wprowadzać</span></div>
+  <div class="tiles">
+    <div class="tile"><div class="stage"><span class="no">✕</span><div class="art" style="transform:scaleX(1.22)"></div></div><div class="cap"><b>Nie</b> rozciągać ani ściskać znaku</div></div>
+    <div class="tile"><div class="stage"><span class="no">✕</span><div class="art" style="transform:rotate(-14deg)"></div></div><div class="cap"><b>Nie</b> obracać ani pochylać znaku</div></div>
+    <div class="tile"><div class="stage"><span class="no">✕</span><div class="art" style="filter:hue-rotate(120deg)"></div></div><div class="cap"><b>Nie</b> zmieniać kolorów znaku</div></div>
+    <div class="tile"><div class="stage"><span class="no">✕</span><div class="art" style="filter:drop-shadow(2.5mm 2.5mm 1.5mm rgba(0,0,0,.6)) blur(.4px)"></div></div><div class="cap"><b>Nie</b> dodawać cieni, obrysów i innych efektów</div></div>
+    <div class="tile"><div class="stage" style="background:var(--red)"><span class="no" style="background:#fff;color:var(--red)">✕</span><div class="art"></div></div><div class="cap"><b>Nie</b> umieszczać na czerwonym ani niebieskim tle (kontrast 2:1)</div></div>
+    <div class="tile"><div class="stage stripes"><span class="no">✕</span><div class="art"></div></div><div class="cap"><b>Nie</b> umieszczać na wzorze ani zdjęciu zaburzającym czytelność</div></div>
+    <div class="tile"><div class="stage"><span class="no">✕</span><span class="badge-beta">BETA</span><div class="art"></div></div><div class="cap"><b>Nie</b> dopisywać etykiet, haseł ani licznika przy znaku</div></div>
+    <div class="tile"><div class="stage" style="background:#fff"><span class="no">✕</span><div style="border:.3mm solid #94a3b8;padding:.5mm;"><div class="art"></div></div></div><div class="cap"><b>Nie</b> naruszać pola ochronnego (tekst, krawędź, ramka tuż przy znaku)</div></div>
+  </div>
+  <div class="foot"><span>Minuta do AED – księga znaku</span><span>6</span></div>
+</section>
+
+<!-- 7. Zastosowanie i dostępne pliki -->
+<section class="page">
+  <div class="head"><h2>Zastosowanie w aplikacji i pliki znaku</h2><span>Stan na 22 listopada 2026</span></div>
+  <div class="cols c2">
+    <div>
+      <h3>Pasek górny aplikacji</h3>
+      <div class="topbar"><div class="art" role="img" aria-label="Logo"></div><span class="small">Mapa AED</span><span class="pill">Nagły wypadek 112</span></div>
+      <p class="small" style="margin-top:3mm">Znak na białym tle, wysokość ok. 40 px (szerokość ponad 80 px), z zachowanym polem ochronnym. Logo jest linkiem do strony głównej.</p>
+      <h3 style="margin-top:6mm">Tryb wysokiego kontrastu</h3>
+      <div class="hc"><span class="tileW"><div class="art" style="width:25mm;height:11mm"></div></span><span>Czarne tło aplikacji, znak na białej płytce</span></div>
+    </div>
+    <div>
+      <h3>Pliki znaku</h3>
+      <table>
+        <thead><tr><th>Format</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><b>PNG</b> (przezroczyste tło, 1204 × 572 px)</td><td>dostępny: <span class="mono">frontend/public/logo.png</span></td></tr>
+          <tr><td><b>JPG</b></td><td>do przygotowania (znak na białym tle)</td></tr>
+          <tr><td><b>PDF</b></td><td>do przygotowania z wersji wektorowej</td></tr>
+          <tr><td><b>SVG</b> (format otwarty)</td><td>do przygotowania – wymaga wektorowego pliku źródłowego</td></tr>
+          <tr><td><b>Księga znaku (PDF)</b></td><td>ten dokument</td></tr>
+        </tbody>
+      </table>
+      <p class="small" style="margin-top:3mm">Zadanie wymaga logotypu w formatach .jpg, .png, .pdf oraz w dowolnym formacie otwartym. Pliki oznaczone „do przygotowania” należy dołączyć przed oddaniem rozwiązania.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Minuta do AED – księga znaku</span><span>7</span></div>
+</section>
+</body>
+</html>

@@ -228,7 +228,8 @@ Baza (`backend/data/aed.db`) nie jest w repozytorium, więc świeże uruchomieni
 
 - **Nazwa akcji:** Minuta do AED.
 - **Hasło:** nie zostało ustalone.
-- **Logotyp:** [`frontend/public/logo.png`](frontend/public/logo.png) (PNG; użyty w aplikacji i jako ikona karty). Wymagane przez zadanie formaty **.jpg, .pdf oraz format otwarty (np. SVG)** oraz **księga znaku w PDF** (kolorystyka, pole ochronne, minimalna wielkość, niedozwolone użycia, 3–5 zdań koncepcji) **nie są jeszcze częścią repozytorium** – `[UZUPEŁNIJ: dołączyć pliki]`.
+- **Logotyp:** [`frontend/public/logo.png`](frontend/public/logo.png) (PNG z przezroczystym tłem; użyty w aplikacji i jako ikona karty). Wymagane przez zadanie formaty **.jpg, .pdf oraz format otwarty (np. SVG)** nie są jeszcze częścią repozytorium – `[UZUPEŁNIJ: dołączyć pliki]`.
+- **Księga znaku:** [`docs/ksiega-znaku/ksiega-znaku-minuta-do-aed.pdf`](docs/ksiega-znaku/ksiega-znaku-minuta-do-aed.pdf) (kolorystyka, pole ochronne, minimalna wielkość, niedozwolone użycie, opis koncepcji; źródło: `docs/ksiega-znaku/index.html`).
 - **System wizualny interfejsu** (tokeny w `frontend/src/styles/tokens.css`): krój Archivo Black / Archivo / JetBrains Mono, akcent ratunkowy `#E11D48`, akcent danych `#2563EB`, statusy w odcieniach zielonego, żółtego, czerwonego i neutralnego szarego dla braku danych.
 
 ---
