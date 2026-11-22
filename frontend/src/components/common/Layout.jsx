@@ -25,6 +25,7 @@ export default function Layout() {
           <div className={`menu${menuOpen ? ' open' : ''}`} id="main-menu">
             <nav aria-label="Główna nawigacja">
               <NavLink to="/" end>Mapa AED</NavLink>
+              <NavLink to="/wykaz">Wykaz AED</NavLink>
               {token && <>
                 <NavLink to="/standard">Standard danych</NavLink>
                 <NavLink to="/dostawca/agregacja">Import</NavLink>

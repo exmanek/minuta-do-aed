@@ -24,6 +24,18 @@ def aed_csv():
     return _file(svc.to_csv(schema, recs, cfg["CSV_DELIMITER"]), "text/csv", f"aed{svc.suffix(recs)}.csv")
 
 
+@bp.get("/export/wykaz.csv")
+def wykaz_csv():
+    cfg, schema, recs = _ctx()
+    return _file(svc.to_wykaz_csv(schema, recs, cfg["CSV_DELIMITER"]), "text/csv", f"wykaz_aed{svc.suffix(recs)}.csv")
+
+
+@bp.get("/export/wykaz.json")
+def wykaz_json():
+    _, schema, recs = _ctx()
+    return jsonify(svc.to_wykaz_json(schema, recs))
+
+
 @bp.get("/export/aed.json")
 def aed_json():
     _, schema, recs = _ctx()

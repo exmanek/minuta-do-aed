@@ -57,6 +57,19 @@ def test_aed_roundtrip_and_export(client, tmp_path):
     assert client.get(f"{CFG}/export/aed.json").json["liczba"] == 1
 
 
+def test_wykaz_is_subset_of_standard_with_fixed_column_order(client, tmp_path):
+    _insert(str(tmp_path / "t.db"))
+    schema = load_schema(client.application.config["STANDARD_XLSX"])
+    names = set(field_names(schema)) | {"znacznik_aktualnosci"}
+    from app.services.export import WYKAZ_FIELDS
+    assert set(WYKAZ_FIELDS) <= names and "lokalizacja_w_obiekcie" in WYKAZ_FIELDS
+    header = client.get(f"{CFG}/export/wykaz.csv").get_data(as_text=True).lstrip("\ufeff").splitlines()[0].split(";")
+    assert header == list(WYKAZ_FIELDS)
+    j = client.get(f"{CFG}/export/wykaz.json").json
+    assert [c["nazwa"] for c in j["kolumny"]] == list(WYKAZ_FIELDS) and all(c["etykieta"] for c in j["kolumny"])
+    assert j["liczba"] == 1 and list(j["items"][0]) == list(WYKAZ_FIELDS)
+
+
 def test_regon():
     assert is_valid_regon_format("123456785")
     assert not is_valid_regon_format("123456789")

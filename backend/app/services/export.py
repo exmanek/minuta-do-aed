@@ -57,6 +57,31 @@ def to_csv(schema, records, delimiter=";"):
     return _csv(field_names(schema), records, delimiter)
 
 
+# Zakres kolumn wykazu (zasobu tabelarycznego do publikacji w dane.gov.pl): podzbiór wzorca w jednej, ustalonej kolejności
+# plus znacznik aktualności liczony z daty potwierdzenia. Pola wewnętrzne i techniczne (źródła składowe itp.) nie wchodzą do tabeli.
+WYKAZ_FIELDS = ("aed_id", "adres", "miasto", "lokalizacja_w_obiekcie", "dostepnosc", "godziny_dostepu", "bariera_dostepu",
+                "ograniczenia_dostepu", "stan", "lat", "lon", "data_ostatniego_potwierdzenia", "znacznik_aktualnosci",
+                "dysponent_nazwa", "zrodlo_danych")
+
+
+def wykaz_columns(schema):
+    """Kolumny wykazu z etykietami ze wzorca (XLSX). Pole spoza wzorca (poza znacznikiem aktualności) jest pomijane."""
+    labels = {f["nazwa"]: f["etykieta"] for f in schema["pola"]}
+    labels["znacznik_aktualnosci"] = "Aktualność danych"
+    return [{"nazwa": c, "etykieta": labels[c]} for c in WYKAZ_FIELDS if c in labels]
+
+
+def to_wykaz_csv(schema, records, delimiter=";"):
+    return _csv([c["nazwa"] for c in wykaz_columns(schema)], records, delimiter)
+
+
+def to_wykaz_json(schema, records):
+    cols = wykaz_columns(schema)
+    return {"kolumny": cols, "items": [{c["nazwa"]: r.get(c["nazwa"]) for c in cols} for r in records],
+            "liczba": len(records), "dane_przykladowe": is_demo(records), "data_wygenerowania": now_iso(),
+            "publikacja_dane_gov_pl": "nie_opublikowano_przez_prototyp"}
+
+
 def to_json(schema, records):
     cols = field_names(schema) + list(DERIVED)
     return {"items": [{c: r.get(c) for c in cols} for r in records], "liczba": len(records), "wygenerowano": now_iso(),

@@ -114,6 +114,7 @@ Szczegóły i decyzje otwarte: [`docs/decisions.md`](docs/decisions.md) (D1–D1
 | Trasa | Dostęp | Zawartość |
 |---|---|---|
 | `/standard` | publiczna (link w menu po zalogowaniu) | tabele pól ze schematu, pobranie wzorca XLSX, instrukcja dla dostawcy |
+| `/wykaz` | publiczna | **Wykaz AED:** tabela zasobu w zakresie kolumn `WYKAZ_FIELDS` (wyszukiwanie, sortowanie, stronicowanie) i pliki do importu w portalu: `GET /export/wykaz.csv`, `/export/wykaz.json`, metryczka JSON/XML. To podgląd zasobu przygotowanego do publikacji, nie publikacja |
 | `/deklaracja-dostepnosci` | publiczna (menu „Dostępność”, stopka) | deklaracja dostępności z wynikiem kontroli kontrastu liczonym na żywo |
 
 ---

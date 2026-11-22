@@ -8,6 +8,7 @@ import ProviderAedFormPage from './pages/ProviderAedFormPage.jsx'
 import ProviderAggregationPage from './pages/ProviderAggregationPage.jsx'
 import ProviderLoginPage from './pages/ProviderLoginPage.jsx'
 import ProviderMyAedPage from './pages/ProviderMyAedPage.jsx'
+import WykazPage from './pages/WykazPage.jsx'
 import StandardPage from './pages/StandardPage.jsx'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<MapPage />} />
         <Route path="/deklaracja-dostepnosci" element={<AccessibilityStatementPage />} />
+        <Route path="/wykaz" element={<WykazPage />} />
         <Route path="/standard" element={<StandardPage />} />
         <Route path="/dostawca/logowanie" element={<ProviderLoginPage />} />
         <Route path="/dostawca/agregacja" element={guard(<ProviderAggregationPage />)} />

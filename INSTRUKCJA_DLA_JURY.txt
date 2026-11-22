@@ -1,0 +1,29 @@
+MINUTA DO AED - INSTRUKCJA DLA JURY
+Zadanie: "Misja AED - Dane na ratunek", HackNation 2026
+
+URUCHOMIENIE (wymagane: Python 3.11+, Node 18+, internet dla mapy)
+  W katalogu projektu:   ./start.sh
+  Potem otworzyc:        http://localhost:5173
+  (Windows: Git Bash lub WSL. macOS, gdy port 5000 zajety: PORT=5001 ./start.sh)
+
+KONTO DOSTAWCY DANYCH
+  REGON: 123456785      Haslo: demo-haslo-1
+
+CO SPRAWDZIC (ok. 2 minuty)
+  1. "Wykaz AED"  - tabela zasobu w zakresie kolumn wzorca danych.
+                   Przyciski: pobranie CSV i metryczki zbioru (do portalu).
+  2. "Mapa AED"  - skupiska z liczba AED, klik w pinezke: gdzie dokladnie
+                   jest urzadzenie i 4 aspekty dostepnosci.
+  3. "Panel dostawcy" -> zaloguj sie -> "Import": wgraj plik z
+                   backend/data/sample_sources/ -> mapowanie -> raport
+                   walidacji -> zatwierdz -> punkt pojawi sie w wykazie i na mapie.
+  4. "Standard danych" (po zalogowaniu) - pobranie wzorca XLSX.
+  5. Menu "Dostepnosc" (gorny pasek): powiekszenie tekstu, wysoki kontrast.
+
+WAZNE
+  - Dane przykladowe sa fikcyjne i oznaczone w aplikacji.
+  - Prototyp NIE publikuje w dane.gov.pl: przygotowuje CSV i metryczke do importu.
+  - Prawdziwe punkty z dane.gov.pl: Import -> zakladka "Z portalu dane.gov.pl".
+  - Testy: cd backend && pytest   |   cd frontend && npm test
+
+Wiecej: README.md, docs/dokumentacja.md
