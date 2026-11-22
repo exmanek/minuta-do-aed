@@ -12,6 +12,7 @@ def create_app(config=None):
     app.config.from_object(Config)
     if config:
         app.config.update(config)
+    app.json.sort_keys = False  # kolejność pól jak w XLSX
     register_error_handlers(app)
     db.init_app(app)
 

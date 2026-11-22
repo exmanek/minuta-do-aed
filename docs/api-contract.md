@@ -58,9 +58,13 @@ Dalsze endpointy (mapping, report, duplicates, export partii, /provider/aed/*, r
 ### GET /meta/schema → 200
 ```json
 { "wersja": "xlsx",
-  "pola": [ { "nazwa": "lat", "status": "wymagane", "typ": "liczba", "etykieta": "Szerokość geograficzna", "opis": "WGS84" } ],
+  "pola": [ { "nazwa": "lat", "status": "wymagane", "typ": "liczba", "etykieta": "Szerokość geograficzna", "opis": "WGS84", "przyklad": "52.2286" } ],
+  "zrodlo_pola": [ { "nazwa": "licencja", "status": "wymagane", "typ": "slownik", "etykieta": "Licencja", "opis": "…", "przyklad": "CC BY 4.0" } ],
+  "pola_wyliczane": [ { "nazwa": "status_dostepnosci", "opis": "…" } ],
   "slowniki": { "dostepnosc": ["calodobowo", "w_godzinach", "nieznana"] } }
 ```
+`pola` = pola rekordu AED (kolejność = kolejność kolumn eksportu), `zrodlo_pola` = opis źródła (formularz SourceScopeForm), `pola_wyliczane` = pola zwracane przez API, ale nie wpisywane przez dostawcę. Typy: `tekst`, `liczba`, `data`, `slownik`, `tak_nie`.
+Wzorzec v0.2 dodaje `lokalizacja_w_obiekcie` („gdzie dokładnie”), `kod_pocztowy`, `data_ostatniego_przegladu`. Klucze JSON są zwracane w kolejności z XLSX.
 Statusy pól: `wymagane`, `warunkowo_wymagane`, `opcjonalne`, `wyliczane`.
 
 ### GET /aed → 200
@@ -70,6 +74,7 @@ Planowane (backend): `bbox`, `status_dostepnosci`, `dostepnosc_teraz`, `sort`.
 { "items": [ {
     "aed_id": "AED-DEMO-0001", "lat": 52.2286, "lon": 21.0035,
     "adres": "Al. Przykładowa 1", "miasto": "Warszawa",
+    "lokalizacja_w_obiekcie": "Hol główny, przy recepcji",
     "dostepnosc": "calodobowo", "godziny_dostepu": null,
     "bariera_dostepu": "brak", "ograniczenia_dostepu": "publiczny", "stan": "sprawny",
     "status_dostepnosci": { "wartosc": "dostepny|ograniczony_dostep|niedostepny|nieznany",
