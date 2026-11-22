@@ -5,7 +5,8 @@ import { isValidRegonFormat } from '../lib/regon.js'
 import { defaultFor, formFields, isRequired } from '../lib/fields.js'
 import { byDistance, matchesQuery } from '../lib/aedList.js'
 import { placeCallout } from '../lib/callout.js'
-import { pinTone } from '../lib/labels.js'
+import { dominantTone, pinTone } from '../lib/labels.js'
+import { clusterIcon } from '../lib/mapIcons.js'
 import { mappingFromBatch } from '../lib/mapping.js'
 import { emptySource, toMeta, validateSource } from '../components/provider/SourceScopeForm.jsx'
 import { hasDuplicateTargets, usedTargets } from '../components/provider/MappingTable.jsx'
@@ -101,5 +102,14 @@ describe('lib', () => {
     expect(pinTone(it('niedostepny', 'w_godzinach')).cls).toBe('bad')
     expect(pinTone(it('nieznany', 'nieznana'))).toMatchObject({ cls: 'unk', icon: '?' })
     expect(pinTone(undefined).cls).toBe('unk')
+  })
+  it('skupisko: liczba punktów i kolor przeważającego rodzaju', () => {
+    const mk = (wartosc, dostepnosc = 'calodobowo') => ({ status_dostepnosci: { wartosc }, dostepnosc })
+    const items = [mk('niedostepny'), mk('niedostepny'), mk('niedostepny'), mk('dostepny'), mk('nieznany')]
+    expect(dominantTone(items)).toBe('bad')
+    expect(dominantTone([mk('dostepny'), mk('nieznany'), mk('nieznany')])).toBe('unk')
+    expect(dominantTone([mk('dostepny'), mk('nieznany')])).toBe('ok') // remis: kolejność ok, w godzinach, nie działa, brak danych
+    const icon = clusterIcon({ getAllChildMarkers: () => items.map((item) => ({ options: { item } })) })
+    expect(icon.options.html).toContain('cluster-bad'); expect(icon.options.html).toContain('<span>5</span>')
   })
 })

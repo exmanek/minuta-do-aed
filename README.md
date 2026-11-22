@@ -1,91 +1,35 @@
-# Misja AED – Dane na ratunek (HackNation 2026)
+# Minuta do AED
 
-Agregator danych o defibrylatorach AED: **Flask + SQLite** (backend) i **React + Vite** (frontend).
-Architektura: dokumentacja v2; plan MVP: import → walidacja → zapis → mapa/lista → eksport.
-Kontrakt API: [docs/api-contract.md](docs/api-contract.md). Wszystkie dane demo są fikcyjne.
+Prototyp do zadania **„Misja AED – Dane na ratunek”** (HackNation 2026). Hasło akcji: nie ustalone.
 
-## Struktura
-- `backend/` – Flask (`app/api`, `app/services`, `app/storage`, `app/domain`), testy pytest, `data/standard/` (wzorzec XLSX)
-- `frontend/` – React, React Router, Vite (`src/api`, `src/pages`, `src/components`, `src/auth`)
-- `docs/api-contract.md` – wspólny kontrakt
+**Problem.** W nagłej sytuacji nie wiadomo, gdzie jest działający defibrylator, a dane o AED są rozproszone i nieujednolicone.
+**Rozwiązanie.** Dostawca danych (podmiot z REGON) wczytuje źródła (CSV, JSON, XLSX lub wprost z dane.gov.pl) → mapowanie → walidacja (18 reguł) → duplikaty (bez automatycznego scalania) → oświadczenia → zatwierdzenie. Wynik: **mapa AED dla obywatela** i **eksport CSV / JSON / GeoJSON z metryczką** gotowy do publikacji w dane.gov.pl.
 
-## Szybki start – jedna komenda
+## Uruchom (Python 3.11+, Node 18+)
 ```bash
-./start.sh            # dev: backend :5000 + frontend :5173 (Ctrl+C zatrzymuje oba)
-./start.sh --build    # buduje frontend i uruchamia tylko Flaska na :5000 (jeden adres)
+git clone https://github.com/exmanek/minuta-do-aed.git && cd minuta-do-aed && ./start.sh
 ```
-Skrypt sam tworzy venv, instaluje zależności, zakłada konta demo i 15 fikcyjnych punktów AED. Konto: REGON `123456785`, hasło `demo-haslo-1`.
+Otwórz **http://localhost:5173**. Konto dostawcy: REGON `123456785`, hasło `demo-haslo-1`. Na starcie jest 15 fikcyjnych punktów; prawdziwe z dane.gov.pl: *Import → „Z portalu dane.gov.pl”*.
 
-## Uruchomienie (dev) – dwa terminale
-Wymagane: Python 3.11+, Node 18+.
+## Sprawdź w 2 minuty
+1. **Mapa:** skupiska z liczbą AED (kolor = przeważający rodzaj) → kliknij pinezkę → kafelek z „gdzie dokładnie” i czterema aspektami dostępności.
+2. **Menu „Dostępność”** (powiększenie tekstu, wysoki kontrast) i deklaracja dostępności.
+3. **Zaloguj się → Import:** wgraj plik z `backend/data/sample_sources/` → mapowanie → raport → zatwierdź → punkt na mapie → eksport.
+4. **Standard danych:** pobierz wzorzec XLSX.
 
-**Backend** (http://127.0.0.1:5000)
-```bash
-cd backend
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-python scripts/seed_demo.py     # opcjonalnie: 2 fikcyjne rekordy w SQLite
-python run.py
-pytest                          # testy
-```
-**Frontend** (http://localhost:5173, proxy `/api` → backend)
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Strona `/` wywołuje `/api/v1/health` i `/api/v1/aed` i wyświetla odpowiedzi – to test integracji.
+## Najważniejsze
+- **Wzorzec XLSX** (24 pola) jest jedynym źródłem prawdy dla backendu, formularzy i testów: `backend/data/standard/`.
+- Dostępność w **czterech aspektach**, **trzy daty** aktualności; brak informacji = „nieznany”, nigdy „niedostępny”.
+- Zgłoszenia z terenu **nie zmieniają** danych oficjalnych. Zatwierdzenie i eksport **nie są** publikacją w dane.gov.pl.
+- Testy: backend **75** (`cd backend && pytest`), frontend **55** (`cd frontend && npm test`). WCAG 2.1 AA: częściowo zgodna, kontrast 52/52 par.
 
-> **macOS:** AirPlay Receiver zajmuje `localhost:5000` (zwraca 403). Backend słucha na `127.0.0.1`, a proxy Vite też na `127.0.0.1`, więc dev działa. W razie kłopotów: `PORT=5001 python run.py` oraz `API_PORT=5001 npm run dev`.
+## Ograniczenia
+Weryfikacja dostawcy jest symulowana (REGON tylko składniowo) · brak geokodowania adresów i publikacji do portalu · metryczka XML bez walidacji XSD · dane z portalu bez dostępności i stanu · brak audytu dostępności i testów E2E · oświadczenia robocze · nie zastępuje numeru **112**.
 
-## Prezentacja – jeden adres
-```bash
-cd frontend && npm run build
-cd ../backend && python run.py   # Flask serwuje frontend/dist + /api/v1 na :5000
-```
+## AI
+Asystent AI (Claude / Claude Code) pomagał w analizie, pisaniu kodu, testów i dokumentacji. Założenia, decyzje projektowe, przegląd i testy: zespół. `[UZUPEŁNIJ: AI poza kodem, autorzy]`
 
-## Wzorzec XLSX
-`backend/data/standard/Wzorcowy_zakres_danych_AED.xlsx` jest źródłem prawdy o polach (`domain/schema.py` czyta zakładki „Opis pól” i „Słowniki”).
-**Wzorzec v0.2 jest generowany skryptem** ( `backend/scripts/build_standard_xlsx.py`).
+## Licencja
+Kod: **MIT** ([LICENSE](LICENSE)). Prawa majątkowe do rozwiązania przenosi zwycięski zespół na Ministra Cyfryzacji odrębną umową (§ 4 regulaminu).
 
-## Konta demo i przepływ
-```bash
-cd backend && python scripts/seed_providers.py   # konta: 123456785 / 222222220 (zweryfikowane), 333333330 (nie); hasło: demo-haslo-1
-```
-Przepływ API: `login` → `POST /provider/batches` (multipart: `files`, `meta`) → `PUT .../mapping` → `POST .../process` → `GET .../report` → (`.../duplicates/decisions`) → `POST .../commit` → `GET /aed`, `GET /export/*`. Pliki do prób: `backend/data/sample_sources/`.
-
-## Dane z dane.gov.pl
-Aplikacja potrafi pobrać **prawdziwe** lokalizacje AED opublikowane w portalu dane.gov.pl (publiczne API, bez klucza). Stan na 22.11.2026: 5 zbiorów (Krosno, Przemyśl, Marki, Legionowo – razem 74 punkty – oraz Warszawa, której zasób jest tylko linkiem do strony i nie da się go pobrać przez portal).
-
-- **Z panelu:** `Panel dostawcy → Import → zakładka „Z portalu dane.gov.pl”` → wybierz zbiory → dalej zwykły kreator (mapowanie, raport, duplikaty, oświadczenia, zatwierdzenie).
-- **Ze skryptu (np. cron):**
-  ```bash
-  cd backend && source venv/bin/activate
-  HARVEST_PASSWORD=demo-haslo-1 python scripts/harvest_danegov.py --regon 123456785 --dry-run   # tylko pobierz i pokaż
-  HARVEST_PASSWORD=... python scripts/harvest_danegov.py --regon 123456785 --commit --accept-declarations --reject-invalid
-  ```
-  Zatwierdzenie wymaga jawnej flagi `--accept-declarations` (składasz oświadczenia dostawcy). Ponowne uruchomienie **aktualizuje** te same rekordy.
-- **Bezpieczeństwo:** weryfikacja TLS zawsze włączona (paczka CA z `certifi` – Python z python.org na macOS nie ma własnej), pobieranie tylko z hostów portalu (także po przekierowaniach), limit 10 MB, timeouty i ponowienia.
-- **Ograniczenia:** źródła nie zawierają dostępności, stanu ani potwierdzenia aktualności, więc punkty mają status „brak danych o dostępności” i „niepotwierdzone”. Dane źródłowe bywają błędne (w Markach współrzędne są odwrócone – wykrywamy i raportujemy – a jeden punkt leży w Krośnie – ostrzeżenie o odległości). Zbiory bez kolumny id są rozróżniane numerem wiersza (zmiana kolejności wierszy może utworzyć nowe rekordy zamiast aktualizacji). Brak harmonogramu w aplikacji – użyj crona.
-
-## Frontend – ekrany
-| Trasa | Dostęp | Co robi |
-|---|---|---|
-| `/` | publiczna | wyszukiwanie AED: GPS lub współrzędne, filtry (promień, tylko dostępne teraz, tylko aktualne, statusy), lista + mapa OSM (na telefonie zakładki Lista/Mapa), karta punktu z czterema aspektami dostępności, tryb pilny, zgłoszenia z terenu, nawigacja |
-| `/standard` | publiczna | tabele pól ze `/meta/schema` (pola rekordu, opis źródła, pola wyliczane), pobranie wzorca XLSX, instrukcja dla dostawcy |
-| `/dostawca/logowanie` | publiczna | logowanie REGON + hasło |
-| `/dostawca/agregacja` | dostawca | kreator: pliki + opis źródeł → mapowanie → raport walidacji → duplikaty → oświadczenia → zatwierdzenie → eksport |
-| `/dostawca/dodaj` | dostawca | formularz AED generowany ze schematu XLSX, walidacja na żywo, tryb edycji (`?aed=ID`) |
-| `/dostawca/punkty` | dostawca | własne punkty, historia zmian, wycofanie |
-
-Testy frontendu: `cd frontend && npm test` (vitest; logika, formularze, strony na zamockowanym API). Ograniczenia: brak automatycznych testów w prawdziwej przeglądarce (mapa Leaflet jest zamockowana w testach), brak geokodowania adresu (lokalizacja: GPS, współrzędne lub kliknięcie w mapę), tabela mapowania nie pokazuje przykładowych wartości z pliku (API ich nie zwraca).
-
-## Stan prac
-Backend (Etapy 1–8) zaimplementowany i pokryty testami (`pytest`): import CSV/JSON/XLSX (kodowanie, separator, kontrola nagłówków), auto-mapowanie, walidacja (reguły AED-*), duplikaty z ręczną decyzją, zatwierdzenie z oświadczeniami, historia, logowanie dostawcy, zgłoszenia oddolne (osobna tabela), `status_dostepnosci`, eksport CSV/JSON/GeoJSON/ZIP + metryczka.
-Ograniczenia: weryfikacja dostawcy symulowana seedem; metryczka XML nie jest zwalidowana względem XSD (brak pliku); licencja/region/kategoria zbioru czekają na decyzję D9; limit zgłoszeń w pamięci procesu; geokodowania adresów brak (rekord bez współrzędnych nie przejdzie zatwierdzenia). Frontend: szkielet (mapa, panel importu i formularz do zrobienia).
-
-## Podział pracy
-- **Frontend** – tylko `frontend/`; kontrakt z `docs/api-contract.md`, mocki dozwolone. Mapa (react-leaflet), filtry, karta AED, panel importu, raport walidacji.
-- **Backend** – tylko `backend/`; import/mapowanie/walidacja (`services/`), logowanie, partie, SQLite. Kontraktu nie zmieniać bez uzgodnienia.
-
-Po zmianie pól uruchom `python scripts/build_standard_xlsx.py` (backend). Dane demo: `scripts/seed_demo.py` (15 rekordów) i `scripts/build_sample_sources.py` (5 plików w `data/sample_sources/`). Mocki odpowiedzi: `docs/examples/`. Decyzje otwarte: `docs/decisions.md`.
+Więcej: [pełna dokumentacja](docs/dokumentacja.md) · [kontrakt API](docs/api-contract.md) · [decyzje](docs/decisions.md)

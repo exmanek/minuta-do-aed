@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext.jsx'
+import AccessibilityMenu from './AccessibilityMenu.jsx'
 
 export default function Layout() {
   const { provider, token, signOut } = useAuth()
@@ -42,6 +43,7 @@ export default function Layout() {
           </div>
           <span className="spacer" />
           <a className="sos" href="tel:112" aria-label="Nagły wypadek: zadzwoń pod numer alarmowy 112"><span className="sos-text">Nagły wypadek</span> <strong>112</strong></a>
+          <AccessibilityMenu />
           <button type="button" className="menu-toggle" aria-expanded={menuOpen} aria-controls="main-menu" onClick={() => setMenuOpen((o) => !o)}>
             <span className="sr-only">{menuOpen ? 'Zamknij menu' : 'Otwórz menu'}</span><span aria-hidden="true">{menuOpen ? '✕' : '☰'}</span>
           </button>
@@ -49,6 +51,7 @@ export default function Layout() {
       </header>
       <main id="main" tabIndex={-1}><Outlet /></main>
       {!isMap && <footer className="app-footer">
+        <p><Link to="/deklaracja-dostepnosci">Deklaracja dostępności</Link></p>
         <p>Aplikacja nie zastępuje numeru alarmowego <a href="tel:112">112</a>.</p>
         <p>Minuta do AED · prototyp hackathonowy HackNation 2026 · zadanie „Misja AED – Dane na ratunek”.</p>
         <p>Mapa: © <a href="https://www.openstreetmap.org/copyright">współtwórcy OpenStreetMap</a>. Eksport plików nie jest publikacją w dane.gov.pl.</p>

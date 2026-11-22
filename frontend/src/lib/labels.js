@@ -50,3 +50,11 @@ export function pinTone(item) {
   if (v === 'ograniczony_dostep') return PIN_TONES.hours
   return PIN_TONES.unk
 }
+
+const TONE_ORDER = ['ok', 'hours', 'bad', 'unk'] // kolejność rozstrzygania remisów
+/** Przeważający rodzaj punktów (zielony/żółty/czerwony/„?”) – kolor skupiska na mapie. */
+export function dominantTone(items) {
+  const counts = Object.fromEntries(TONE_ORDER.map((t) => [t, 0]))
+  for (const i of items) counts[pinTone(i).cls] += 1
+  return TONE_ORDER.reduce((best, t) => (counts[t] > counts[best] ? t : best), TONE_ORDER[0])
+}

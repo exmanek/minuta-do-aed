@@ -1,0 +1,48 @@
+/* ===== menu „Dostępność” ===== */
+.a11y { order: 4; flex: none; }
+.a11y-toggle { gap: 6px; border-radius: 999px; padding: 0 14px; }
+.a11y-icon { font-family: var(--font-display); font-weight: 400; font-size: 1rem; }
+.a11y-panel { position: absolute; z-index: 2600; top: calc(var(--topbar-h) + 4px); right: 8px; width: min(340px, calc(100vw - 16px)); max-height: calc(100dvh - var(--topbar-h) - 16px); overflow-y: auto; padding: 16px 18px; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-float); }
+.a11y-panel h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.a11y-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 10px 0; }
+.a11y-name { font-weight: 600; }
+.a11y-size, .a11y-seg { display: inline-flex; align-items: center; gap: 4px; }
+.a11y-size output { min-width: 3.5em; text-align: center; font-weight: 600; }
+.a11y-seg button[aria-pressed=true] { background: var(--data); color: #fff; border-color: var(--data); }
+.a11y-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.a11y-foot a { font-weight: 600; }
+@media (max-width: 899px) { .a11y-label { display: none; } .a11y-toggle { padding: 0; min-width: var(--touch); } }
+
+/* ===== opcje użytkownika (atrybuty ustawiane na <html>) ===== */
+html[data-underline] a:not(.brand):not(.btn):not(.sos) { text-decoration: underline !important; text-underline-offset: 3px; }
+html[data-spacing] body { line-height: 1.8; letter-spacing: .06em; word-spacing: .12em; }
+html[data-spacing] button, html[data-spacing] input, html[data-spacing] select, html[data-spacing] textarea { letter-spacing: inherit; word-spacing: inherit; }
+html[data-spacing] p { margin-block: .8em; }
+html[data-still] *, html[data-still] *::before, html[data-still] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+html[data-plain] { --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; --font-display: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
+html[data-plain] h1, html[data-plain] .counter strong, html[data-plain] .dist-big, html[data-plain] .count, html[data-plain] .sos strong,
+html[data-plain] .cluster, html[data-plain] .tile strong, html[data-plain] .a11y-icon { font-weight: 800; }
+
+/* ===== wysoki kontrast: czarne tło, biały tekst, żółty akcent ===== */
+:root[data-contrast="high"] {
+  --bg: #000000; --surface: #000000; --surface-alt: #1a1a1a; --glass: rgba(0, 0, 0, .97);
+  --line: #9a9a9a; --line-strong: #ffffff; --field-border: #ffffff;
+  --text: #ffffff; --muted: #e6e6e6;
+  --rescue: #ffd400; --rescue-dark: #ffea70; --rescue-soft: #2a2200;
+  --data: #7fd4ff; --data-dark: #7fd4ff; --data-soft: #00263d; --info: #bfe6ff; --info-bg: #00263d;
+  --link: #7fd4ff; --focus: #ffd400;
+  --ok: #7dffa0; --ok-bg: #00290f; --warn: #ffd166; --warn-bg: #2e2100;
+  --bad: #ff9aa8; --bad-bg: #330009; --unk: #e6e6e6; --unk-bg: #262626;
+  --shadow-card: none; --shadow-float: 0 0 0 2px #fff;
+}
+:root[data-contrast="high"] button, :root[data-contrast="high"] .btn { background: #000; color: #fff; border: 2px solid #fff; }
+:root[data-contrast="high"] button:hover, :root[data-contrast="high"] .btn:hover { background: #262626; }
+:root[data-contrast="high"] button.primary, :root[data-contrast="high"] .btn.primary, :root[data-contrast="high"] .sos { background: #ffd400; color: #000; border-color: #ffd400; }
+:root[data-contrast="high"] .count, :root[data-contrast="high"] .filters .count { background: #ffd400; color: #000; }
+:root[data-contrast="high"] .a11y-seg button[aria-pressed=true] { background: #ffd400; color: #000; border-color: #ffd400; }
+:root[data-contrast="high"] .topbar nav a.active { background: #fff; color: #000; }
+:root[data-contrast="high"] .brand { background: #fff; padding: 2px 8px; border-radius: var(--radius-sm); } /* logo ma ciemne litery */
+:root[data-contrast="high"] .badge { border: 1px solid currentColor; }
+:root[data-contrast="high"] .card, :root[data-contrast="high"] fieldset, :root[data-contrast="high"] .table-wrap, :root[data-contrast="high"] .tile { border-color: #fff; }
+:root[data-contrast="high"] a { text-decoration: underline; }
+:root[data-contrast="high"] .aed-item[aria-current=true] { border-color: #ffd400; border-width: 2px; }

@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import RequireProvider from './auth/RequireProvider.jsx'
 import Layout from './components/common/Layout.jsx'
+import AccessibilityStatementPage from './pages/AccessibilityStatementPage.jsx'
 import MapPage from './pages/MapPage.jsx'
 import NotFound from './pages/NotFound.jsx'
 import ProviderAedFormPage from './pages/ProviderAedFormPage.jsx'
@@ -15,6 +16,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<MapPage />} />
+        <Route path="/deklaracja-dostepnosci" element={<AccessibilityStatementPage />} />
         <Route path="/standard" element={<StandardPage />} />
         <Route path="/dostawca/logowanie" element={<ProviderLoginPage />} />
         <Route path="/dostawca/agregacja" element={guard(<ProviderAggregationPage />)} />

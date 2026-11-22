@@ -1,6 +1,6 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; font: 400 16px/1.5 var(--font-sans); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+body { margin: 0; font: 400 1rem/1.5 var(--font-sans); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
 h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.75rem; line-height: 1.15; margin: 0 0 .5rem; letter-spacing: -.01em; }
 h2 { font-size: 1.2rem; font-weight: 700; margin: 1.5rem 0 .5rem; }
 h3 { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 1.25rem 0 .4rem; }

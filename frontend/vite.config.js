@@ -7,5 +7,5 @@ const api = `http://127.0.0.1:${process.env.API_PORT || 5000}`
 export default defineConfig({
   plugins: [react()],
   server: { port: 5173, proxy: { '/api': api } },
-  test: { environment: 'jsdom', setupFiles: './src/test/setup.js', globals: true, css: false },
+  test: { environment: 'jsdom', setupFiles: './src/test/setup.js', globals: true, css: true },
 })

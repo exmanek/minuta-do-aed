@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
-import { aedIcon, TILE_ATTRIBUTION, TILE_URL, userIcon } from '../../lib/mapIcons.js'
-import { STATUS } from '../../lib/labels.js'
+import { TILE_ATTRIBUTION, TILE_URL, userIcon } from '../../lib/mapIcons.js'
+import ClusterLayer from './ClusterLayer.jsx'
+import { prefersStill } from '../../a11y/settings.js'
 import MapCallout from './MapCallout.jsx'
 
 function Controller({ items, pos, locating, selected }) {
@@ -19,7 +20,9 @@ function Controller({ items, pos, locating, selected }) {
   }, [map, pos, locating, items.length]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { // wybór (marker lub lista): płynny przelot do punktu
     const it = items.find((i) => i.aed_id === selected)
-    if (it) map.flyTo([it.lat, it.lon], Math.max(map.getZoom(), 15), { duration: 0.6 })
+    if (!it) return
+    const zoom = Math.max(map.getZoom(), 15)
+    if (prefersStill()) map.setView([it.lat, it.lon], zoom, { animate: false }); else map.flyTo([it.lat, it.lon], zoom, { duration: 0.6 })
   }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps
   return null
 }
@@ -39,11 +42,7 @@ export default function MapView({ items, pos, locating, selected, onSelect, onDe
         <Controller items={items} pos={pos} locating={locating} selected={selected} />
         <ClickToDeselect onDeselect={onDeselect} />
         {pos && <Marker position={[pos.lat, pos.lon]} title="Twoja pozycja" icon={userIcon} keyboard={false} />}
-        {items.map((i) => (
-          <Marker key={i.aed_id} position={[i.lat, i.lon]} icon={aedIcon(i, i.aed_id === selected)}
-            title={`${i.adres || ''}, ${i.miasto || ''} – ${STATUS[i.status_dostepnosci?.wartosc]?.text || ''}`}
-            eventHandlers={{ click: () => onSelect(i.aed_id) }} />
-        ))}
+        <ClusterLayer items={items} selected={selected} onSelect={onSelect} />
         {current && <MapCallout key={current.aed_id} item={current}>{renderCallout(current)}</MapCallout>}
       </MapContainer>
     </div>
