@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { errorLines, fieldErrors } from '../lib/errors.js'
 import { formatDistance, formatDate } from '../lib/format.js'
 import { isValidRegonFormat } from '../lib/regon.js'
-import { formFields, isRequired } from '../lib/fields.js'
+import { defaultFor, formFields, isRequired } from '../lib/fields.js'
+import { byDistance, matchesQuery } from '../lib/aedList.js'
+import { placeCallout } from '../lib/callout.js'
+import { pinTone } from '../lib/labels.js'
 import { mappingFromBatch } from '../lib/mapping.js'
 import { emptySource, toMeta, validateSource } from '../components/provider/SourceScopeForm.jsx'
 import { hasDuplicateTargets, usedTargets } from '../components/provider/MappingTable.jsx'
@@ -27,11 +30,19 @@ describe('lib', () => {
   })
   it('rozszerzenia plików', () => { expect(extOf('Dane.XLSX')).toBe('xlsx'); expect(extOf('a.pdf')).toBe('pdf') })
   it('formularz AED: grupy z XLSX, pola ukryte pominięte, nowe pola trafiają do „Pozostałe”', () => {
-    const groups = formFields(schema)
+    const { coords, groups } = formFields(schema)
     const names = groups.flatMap((g) => g.items.map((i) => i.nazwa))
-    expect(names).toContain('lat'); expect(names).toContain('nowe_pole_z_xlsx')
+    expect(coords.map((c) => c.nazwa)).toEqual(['lat', 'lon']) // współrzędne: osobno (mapa/GPS), nie w zwykłych polach
+    expect(names).not.toContain('lat'); expect(names).toContain('nowe_pole_z_xlsx')
     for (const hidden of ['aed_id', 'nazwa_dostawcy', 'data_importu', 'data_ostatniego_potwierdzenia']) expect(names).not.toContain(hidden)
     expect(groups.at(-1).id).toBe('inne')
+  })
+  it('wartości domyślne: brak informacji = „nieznane”, nigdy wartość sugerująca dostępność', () => {
+    const dict = schema.slowniki
+    expect(defaultFor(schema.pola.find((p) => p.nazwa === 'dostepnosc'), dict)).toBe('nieznana')
+    expect(defaultFor(schema.pola.find((p) => p.nazwa === 'stan'), dict)).toBe('nieznany')
+    expect(defaultFor(schema.pola.find((p) => p.nazwa === 'adres'), dict)).toBe('')
+    expect(defaultFor({ nazwa: 'x', typ: 'slownik' }, { x: ['calodobowo'] })).toBe('')
   })
   it('godziny_dostepu wymagane tylko dla w_godzinach', () => {
     const f = schema.pola.find((p) => p.nazwa === 'godziny_dostepu')
@@ -57,5 +68,38 @@ describe('lib', () => {
     expect(validateSource({ ...ok, dysponent_regon: '123456789' }).dysponent_regon).toBeTruthy()
     const m = toMeta(ok)
     expect(m.dysponent_regon).toBe('123456785'); expect(m.zakres_referencyjny.obszar.teryt).toEqual(['1465011', '1465012']); expect(m.dane_przykladowe).toBe(true)
+  })
+  it('kafelek: z prawej strony markera, z lewej przy prawej krawędzi, zawsze w obrębie mapy', () => {
+    const size = { w: 360, h: 300 }, box = { w: 1200, h: 700 }
+    expect(placeCallout({ x: 500, y: 350 }, size, box)).toMatchObject({ side: 'right', x: 522 })
+    const near = placeCallout({ x: 1100, y: 350 }, size, box)
+    expect(near.side).toBe('left'); expect(near.x + size.w).toBeLessThanOrEqual(1100)
+    for (const pt of [{ x: 0, y: 0 }, { x: 1200, y: 700 }, { x: 600, y: -50 }]) {
+      const r = placeCallout(pt, size, box)
+      expect(r.x).toBeGreaterThanOrEqual(8); expect(r.y).toBeGreaterThanOrEqual(8)
+      expect(r.x + size.w).toBeLessThanOrEqual(box.w - 8); expect(r.y + size.h).toBeLessThanOrEqual(box.h - 8)
+    }
+  })
+  it('kafelek na wąskim ekranie leży nad markerem (a pod nim, gdy nad nie ma miejsca)', () => {
+    const size = { w: 300, h: 260 }, box = { w: 390, h: 700 }
+    const top = placeCallout({ x: 195, y: 500 }, size, box)
+    expect(top.side).toBe('top'); expect(top.y + size.h).toBeLessThanOrEqual(500)
+    expect(placeCallout({ x: 195, y: 120 }, size, box).side).toBe('bottom')
+  })
+  it('odległość jest tylko informacją i kolejnością; wyszukiwarka ignoruje wielkość liter i polskie znaki', () => {
+    const items = [{ aed_id: 'far', lat: 54.35, lon: 18.65, miasto: 'Gdańsk' }, { aed_id: 'near', lat: 52.23, lon: 21.01, miasto: 'Warszawa' }]
+    const sorted = byDistance(items, { lat: 52.2297, lon: 21.0122 })
+    expect(sorted.map((i) => i.aed_id)).toEqual(['near', 'far']); expect(sorted[1].odleglosc_m).toBeGreaterThan(200000)
+    expect(byDistance(items, null)).toBe(items)
+    expect(matchesQuery(items[0], 'gdansk')).toBe(true); expect(matchesQuery(items[0], 'WARSZAWA')).toBe(false); expect(matchesQuery(items[0], '')).toBe(true)
+  })
+  it('kolor pinezki: zielony działa, żółty w godzinach/z ograniczeniem, czerwony nie działa, „?” brak danych', () => {
+    const it = (wartosc, dostepnosc) => ({ status_dostepnosci: { wartosc }, dostepnosc })
+    expect(pinTone(it('dostepny', 'calodobowo')).cls).toBe('ok')
+    expect(pinTone(it('dostepny', 'w_godzinach')).cls).toBe('hours')
+    expect(pinTone(it('ograniczony_dostep', 'calodobowo')).cls).toBe('hours')
+    expect(pinTone(it('niedostepny', 'w_godzinach')).cls).toBe('bad')
+    expect(pinTone(it('nieznany', 'nieznana'))).toMatchObject({ cls: 'unk', icon: '?' })
+    expect(pinTone(undefined).cls).toBe('unk')
   })
 })

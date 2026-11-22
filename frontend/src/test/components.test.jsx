@@ -77,7 +77,6 @@ describe('RegonLogin', () => {
 describe('AedForm (generowany ze schematu)', () => {
   it('buduje pola ze schematu, ukrywa pola systemowe, aktywuje godziny dla w_godzinach, blokuje zapis bez oświadczeń', async () => {
     wrap(<AedForm />)
-    expect(screen.getByLabelText(/Szerokość geograficzna/)).toBeInTheDocument()
     expect(screen.getByLabelText(/Nowe pole z wzorca/)).toBeInTheDocument()
     expect(screen.queryByLabelText(/Identyfikator AED/)).toBeNull()
     expect(screen.queryByLabelText(/^Dostawca/)).toBeNull()
@@ -90,6 +89,25 @@ describe('AedForm (generowany ze schematu)', () => {
     expect(submit).toBeDisabled()
     fireEvent.click(screen.getByLabelText(/Oświadczam prawo/))
     expect(submit).not.toBeDisabled()
+  })
+  it('współrzędne: mapa z GPS jako główny sposób, ręczne pola tylko w zwijanej sekcji', async () => {
+    wrap(<AedForm />)
+    await screen.findByLabelText(/Oświadczam prawdziwość/)
+    expect(screen.getByRole('group', { name: /Mapa do wskazania położenia/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Użyj mojej lokalizacji' })).toBeInTheDocument()
+    const manual = screen.getByText('Pokaż/edytuj współrzędne ręcznie').closest('details')
+    expect(manual).not.toHaveAttribute('open')
+    expect(manual).toContainElement(screen.getByLabelText(/Szerokość geograficzna/))
+    expect(manual).toContainElement(screen.getByLabelText(/Długość geograficzna/))
+  })
+  it('GPS ustawia pozycję w formularzu bez wpisywania; domyślnie brak danych = „nieznane”', async () => {
+    vi.stubGlobal('navigator', { ...navigator, geolocation: { getCurrentPosition: (ok) => ok({ coords: { latitude: 50.0614, longitude: 19.9372 } }) } })
+    wrap(<AedForm />)
+    await waitFor(() => expect(screen.getByLabelText(/Szerokość geograficzna/)).toHaveValue('50.0614'))
+    expect(screen.getByLabelText(/Długość geograficzna/)).toHaveValue('19.9372')
+    expect(screen.getByLabelText(/Godziny dostępności/)).toHaveValue('nieznana')
+    expect(screen.getByLabelText(/Stan urządzenia/)).toHaveValue('nieznany')
+    vi.unstubAllGlobals()
   })
   it('wysyła payload bez pustych pól i mapuje błędy API na pola', async () => {
     providerApi.createAed.mockRejectedValue(Object.assign(new Error('Rekord zawiera błędy blokujące.'),
@@ -104,6 +122,7 @@ describe('AedForm (generowany ze schematu)', () => {
     expect(body).toMatchObject({ adres: 'ul. Test 1', oswiadczenie_prawdziwosci: true, oswiadczenie_prawa_do_udostepniania: true, potwierdzam_aktualnosc: true, wersja_tresci: 'v1' })
     expect(body).not.toHaveProperty('lat')
     expect(await screen.findAllByText('Brak współrzędnych.')).not.toHaveLength(0)
+    expect(screen.getByText('Pokaż/edytuj współrzędne ręcznie').closest('details')).toHaveAttribute('open') // błąd otwiera sekcję
     expect(screen.getByLabelText(/Szerokość geograficzna/)).toHaveAttribute('aria-invalid', 'true')
   })
   it('walidacja na żywo pokazuje błąd i ostrzeżenie przy polu', async () => {

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
@@ -20,12 +21,13 @@ export default function Dialog({ title, onClose, children }) {
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('keydown', onKey); prev?.focus?.() }
   }, [onClose])
-  return (
+  return createPortal( // poza kontenerem mapy (transform kafelka psułby position: fixed)
     <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title" ref={ref}>
         <h2 id="dlg-title" style={{ marginTop: 0 }}>{title}</h2>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

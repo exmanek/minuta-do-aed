@@ -10,3 +10,16 @@ export const exportUrls = {
   zrodla: '/api/v1/export/zrodla.csv', aedZrodla: '/api/v1/export/aed_zrodla.csv',
   metadataJson: '/api/v1/export/metadata.json', metadataXml: '/api/v1/export/metadata.xml',
 }
+
+/** Pobiera WSZYSTKIE pasujące punkty (backend zwraca maks. 200 na stronę), bez ograniczenia promieniem. */
+export async function listAllAed(query, pageSize = 200, maxPages = 50) {
+  const items = []
+  let total = Infinity
+  for (let page = 0; items.length < total && page < maxPages; page++) {
+    const r = await listAed({ ...query, limit: pageSize, offset: items.length })
+    items.push(...r.items)
+    total = r.liczba
+    if (!r.items.length) break
+  }
+  return { items, liczba: total === Infinity ? items.length : total }
+}

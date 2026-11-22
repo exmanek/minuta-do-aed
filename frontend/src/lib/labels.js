@@ -25,3 +25,28 @@ export const REPORT_TYPES = {
   brak_urzadzenia: 'Nie ma urządzenia', uszkodzone: 'Urządzenie uszkodzone',
 }
 export const LEVEL = { blad: { cls: 'bad', text: 'Błąd' }, ostrzezenie: { cls: 'warn', text: 'Ostrzeżenie' } }
+
+// Ton pigułki dla wartości czterech aspektów dostępności. „Brak danych” jest neutralny (unk), nigdy alarmujący.
+export const ASPECT_TONE = {
+  dostepnosc: { calodobowo: 'ok', w_godzinach: 'info', nieznana: 'unk' },
+  bariera_dostepu: { brak: 'ok', kod: 'warn', klucz: 'warn', karta: 'warn', obsluga: 'warn', nieznana: 'unk' },
+  ograniczenia_dostepu: { publiczny: 'ok', klienci: 'warn', personel: 'warn', strefa_zastrzezona: 'warn', nieznane: 'unk' },
+  stan: { sprawny: 'ok', gotowy_do_uzycia: 'ok', czasowo_niedostepny: 'bad', nieznany: 'unk' },
+}
+export const aspectTone = (field, value) => ASPECT_TONE[field]?.[value] || 'unk'
+
+// Kolor i symbol pinezki na mapie. Status (wartość) pochodzi z backendu; frontend tylko dobiera wygląd.
+// zielony = działa, żółty = działa w określonych godzinach / z ograniczeniem dostępu, czerwony = nie działa, „?” = brak danych.
+export const PIN_TONES = {
+  ok: { cls: 'ok', icon: '✔', text: 'Działa' },
+  hours: { cls: 'hours', icon: '!', text: 'Działa w określonych godzinach lub z ograniczeniem dostępu' },
+  bad: { cls: 'bad', icon: '✖', text: 'Nie działa' },
+  unk: { cls: 'unk', icon: '?', text: 'Brak danych' },
+}
+export function pinTone(item) {
+  const v = item?.status_dostepnosci?.wartosc
+  if (v === 'niedostepny') return PIN_TONES.bad
+  if (v === 'dostepny') return item.dostepnosc === 'w_godzinach' ? PIN_TONES.hours : PIN_TONES.ok
+  if (v === 'ograniczony_dostep') return PIN_TONES.hours
+  return PIN_TONES.unk
+}

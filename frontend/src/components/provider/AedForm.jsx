@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '../../auth/AuthContext.jsx'
 import { createAed, updateAed, validateAed } from '../../api/provider.js'
 import { useSchema } from '../../auth/SchemaContext.jsx'
 import { useDebounce } from '../../hooks/useDebounce.js'
 import { fieldErrors } from '../../lib/errors.js'
-import { formFields, isRequired } from '../../lib/fields.js'
+import { defaultFor, formFields, isRequired } from '../../lib/fields.js'
 import { valueLabel } from '../../lib/labels.js'
 import ErrorSummary from '../common/ErrorSummary.jsx'
 import Field from '../common/Field.jsx'
 import { LoadError, Loading } from '../common/Feedback.jsx'
-import CoordPicker from './CoordPicker.jsx'
+import PositionPicker from './PositionPicker.jsx'
 import DeclarationBox, { declarationsComplete, emptyDeclarations } from './DeclarationBox.jsx'
 
 const fid = (n) => `f-${n}`
-export const initialValues = (groups, rec) => Object.fromEntries(groups.flatMap((g) => g.items).map((p) => [p.nazwa, rec?.[p.nazwa] ?? '']))
+/** Wartości startowe: rekord (edycja) albo bezpieczne domyślne – brak informacji to „nieznane”, nie wartość sugerująca dostępność. */
+export const initialValues = (fields, dict, rec, defaults = {}) =>
+  Object.fromEntries(fields.map((p) => [p.nazwa, rec ? rec[p.nazwa] ?? '' : defaults[p.nazwa] ?? defaultFor(p, dict)]))
 
 /** Zamienia wartości formularza na treść żądania (puste -> pominięte). */
 export const toPayload = (values) => Object.fromEntries(Object.entries(values).filter(([, v]) => v !== '' && v !== null))
@@ -35,7 +38,12 @@ function Control({ p, value, onChange, values, ...aria }) { // aria = id, aria-i
 /** Formularz punktu AED GENEROWANY z /meta/schema (kolejność, etykiety, statusy, typy, słowniki z XLSX). */
 export default function AedForm({ existing, onSaved }) {
   const { schema, loading, error, reload } = useSchema()
-  const groups = useMemo(() => (schema ? formFields(schema) : []), [schema])
+  const { provider } = useAuth()
+  const { coords, groups } = useMemo(() => (schema ? formFields(schema) : { coords: [], groups: [] }), [schema])
+  const allFields = useMemo(() => [...coords, ...groups.flatMap((g) => g.items)], [coords, groups])
+  const defaults = useMemo(() => (provider?.nazwa ? { dysponent_nazwa: provider.nazwa } : {}), [provider])
+  const [manualOpen, setManualOpen] = useState(false)
+  const [touched, setTouched] = useState({}) // uwagi walidacji dla pustych pól pokazujemy dopiero po dotknięciu pola lub próbie zapisu
   const [values, setValues] = useState(null)
   const [decl, setDecl] = useState(emptyDeclarations())
   const [version, setVersion] = useState('v1')
@@ -45,7 +53,7 @@ export default function AedForm({ existing, onSaved }) {
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(null)
 
-  useEffect(() => { if (schema) setValues(initialValues(groups, existing)) }, [schema, existing]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (schema) setValues(initialValues(allFields, schema.slowniki, existing, defaults)) }, [schema, existing]) // eslint-disable-line react-hooks/exhaustive-deps
   const debounced = useDebounce(values, 400)
   useEffect(() => { // walidacja na żywo: te same reguły co przy imporcie, bez zapisu
     if (!debounced || !Object.values(debounced).some((v) => v !== '')) return setIssues([])
@@ -59,10 +67,12 @@ export default function AedForm({ existing, onSaved }) {
   if (error) return <LoadError error={error} onRetry={reload} />
   const dict = schema.slowniki
   const vals = { ...values, __dict: dict }
+  const visible = (i) => !i.pole || values[i.pole] !== '' || touched[i.pole] // puste, nietknięte pole nie krzyczy przy wejściu
   const live = {}
-  for (const i of issues) if (i.pole && (!live[i.pole] || i.poziom === 'blad')) live[i.pole] = i
+  for (const i of issues.filter(visible)) if (i.pole && (!live[i.pole] || i.poziom === 'blad')) live[i.pole] = i
   const apiFieldErrs = fieldErrors(apiError)
   const set = (name, v) => { setValues((cur) => ({ ...cur, [name]: v })); setSaved(null) }
+  const touch = (name) => setTouched((t) => (t[name] ? t : { ...t, [name]: true }))
 
   const submit = async (e) => {
     e.preventDefault()
@@ -72,35 +82,48 @@ export default function AedForm({ existing, onSaved }) {
     try {
       const rec = existing ? await updateAed(existing.aed_id, body) : await createAed(body)
       setSaved(rec); onSaved?.(rec)
-      if (!existing) { setValues(initialValues(groups)); setDecl(emptyDeclarations()); setPotwierdzam(false); setIssues([]) }
+      if (!existing) { setValues(initialValues(allFields, dict, null, defaults)); setDecl(emptyDeclarations()); setPotwierdzam(false); setIssues([]) }
     } catch (err) { setApiError(err) } finally { setBusy(false) }
   }
-  const fieldIds = Object.fromEntries(groups.flatMap((g) => g.items).map((p) => [p.nazwa, fid(p.nazwa)]))
-  const hasBlocking = issues.some((i) => i.poziom === 'blad')
+  const fieldIds = Object.fromEntries(allFields.map((p) => [p.nazwa, fid(p.nazwa)]))
+  const setPosition = (la, lo) => { setValues((c) => ({ ...c, lat: String(la), lon: String(lo) })); setSaved(null) }
+  const coordError = coords.some((p) => apiFieldErrs[p.nazwa] || live[p.nazwa]?.poziom === 'blad')
+  const hasBlocking = issues.some((i) => i.poziom === 'blad' && visible(i))
+
+  const renderField = (p) => {
+    const l = live[p.nazwa]
+    const disabled = p.nazwa === 'godziny_dostepu' && values.dostepnosc !== 'w_godzinach'
+    return (
+      <Field key={p.nazwa} id={fid(p.nazwa)} label={p.etykieta} required={isRequired(p, values)}
+        hint={p.nazwa === 'godziny_dostepu' ? 'Składnia opening_hours, np. Mo-Fr 08:00-18:00 lub 24/7. Aktywne dla „W określonych godzinach”.' : p.nazwa === 'dysponent_nazwa' && !existing ? `${p.opis ? `${p.opis} ` : ''}Domyślnie Twój podmiot – zmień, jeśli dane prowadzi ktoś inny.` : p.opis}
+        error={apiFieldErrs[p.nazwa] || (l?.poziom === 'blad' ? l.komunikat : null)} warning={l?.poziom === 'ostrzezenie' ? l.komunikat : null}>
+        {disabled
+          ? <input type="text" value="" disabled placeholder="Nie dotyczy" />
+          : <Control p={p} value={values[p.nazwa]} onChange={(v) => set(p.nazwa, v)} onBlur={() => touch(p.nazwa)} values={vals} />}
+      </Field>)
+  }
 
   return (
-    <form onSubmit={submit} noValidate aria-label={existing ? 'Edycja punktu AED' : 'Nowy punkt AED'}>
+    <form className="aed-form" onSubmit={submit} noValidate aria-label={existing ? 'Edycja punktu AED' : 'Nowy punkt AED'}>
       <ErrorSummary error={apiError} fieldIds={fieldIds} />
       {saved && <p className="alert ok" role="status">Zapisano punkt <strong>{saved.aed_id}</strong>. Status dostępności: {saved.status_dostepnosci?.wartosc}; aktualność: {saved.znacznik_aktualnosci}.</p>}
       {groups.map((g) => (
         <fieldset key={g.id}>
           <legend>{g.title}</legend>
-          {g.id === 'dost' && <p className="small muted">Brak informacji zaznacz jako „nieznana/nieznane” – nie oznacza to, że punkt jest niedostępny.</p>}
-          {g.id === 'lok' && <CoordPicker lat={values.lat ?? ''} lon={values.lon ?? ''} onPick={(la, lo) => setValues((c) => ({ ...c, lat: String(la), lon: String(lo) }))} />}
-          <div className="grid2">
-            {g.items.map((p) => {
-              const l = live[p.nazwa]
-              const disabled = p.nazwa === 'godziny_dostepu' && values.dostepnosc !== 'w_godzinach'
-              return (
-                <Field key={p.nazwa} id={fid(p.nazwa)} label={p.etykieta} required={isRequired(p, values)}
-                  hint={p.nazwa === 'godziny_dostepu' ? 'Składnia opening_hours, np. Mo-Fr 08:00-18:00 lub 24/7. Aktywne dla „W określonych godzinach”.' : p.opis}
-                  error={apiFieldErrs[p.nazwa] || (l?.poziom === 'blad' ? l.komunikat : null)} warning={l?.poziom === 'ostrzezenie' ? l.komunikat : null}>
-                  {disabled
-                    ? <input type="text" value="" disabled placeholder="Nie dotyczy" />
-                    : <Control p={p} value={values[p.nazwa]} onChange={(v) => set(p.nazwa, v)} values={vals} />}
-                </Field>)
-            })}
-          </div>
+          {g.id === 'dost' && <p className="small muted">Brak informacji zostaw jako „nieznana/nieznane” – nie oznacza to, że punkt jest niedostępny.</p>}
+          {g.id === 'lok' && (
+            <>
+              <PositionPicker lat={values.lat ?? ''} lon={values.lon ?? ''} onChange={setPosition} auto={!existing} />
+              {coordError && <p className="err" role="alert">Ustaw położenie urządzenia na mapie.</p>}
+              {coords.length > 0 && (
+                <details className="manual-coords" open={manualOpen || coordError} onToggle={(e) => setManualOpen(e.currentTarget.open)}>
+                  <summary>Pokaż/edytuj współrzędne ręcznie</summary>
+                  <div className="grid2">{coords.map(renderField)}</div>
+                </details>
+              )}
+            </>
+          )}
+          <div className="grid2">{g.items.map(renderField)}</div>
         </fieldset>
       ))}
       <fieldset>
@@ -111,7 +134,7 @@ export default function AedForm({ existing, onSaved }) {
       </fieldset>
       <DeclarationBox value={decl} onChange={setDecl} onVersion={setVersion} />
       {hasBlocking && <p className="alert bad" role="status">Formularz zawiera błędy blokujące zapis – popraw zaznaczone pola.</p>}
-      <div className="btn-row">
+      <div className="action-bar">
         <button type="submit" className="primary" disabled={busy || !declarationsComplete(decl)}>{busy ? 'Zapisywanie…' : existing ? 'Zapisz zmiany' : 'Dodaj punkt'}</button>
         {!declarationsComplete(decl) && <span className="small muted" role="note">Zaznacz oba wymagane oświadczenia, aby zapisać.</span>}
       </div>

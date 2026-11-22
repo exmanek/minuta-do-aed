@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider } from '../auth/AuthContext.jsx'
 import { SchemaContext } from '../auth/SchemaContext.jsx'
+import { listAllAed } from '../api/aed.js'
 import MapPage from '../pages/MapPage.jsx'
 import StandardPage from '../pages/StandardPage.jsx'
 import UploadPanel from '../components/provider/UploadPanel.jsx'
@@ -10,7 +11,9 @@ import UrgentPanel from '../components/map/UrgentPanel.jsx'
 import ReportDialog from '../components/map/ReportDialog.jsx'
 import { schema } from './fixtures.js'
 
-vi.mock('../components/map/MapView.jsx', () => ({ default: () => <div data-testid="map" /> })) // Leaflet wymaga prawdziwej przeglądarki
+// Leaflet wymaga prawdziwej przeglądarki: mock pokazuje liczbę markerów i kafelek wybranego punktu (jak MapCallout)
+vi.mock('../components/map/MapView.jsx', () => ({ default: ({ items, selected, renderCallout }) => (
+  <div data-testid="map" data-count={items.length}>{items.filter((i) => i.aed_id === selected).map((i) => <div key={i.aed_id} data-testid="callout">{renderCallout(i)}</div>)}</div>) }))
 
 const item = (id, v, extra = {}) => ({ aed_id: id, lat: 52.2, lon: 21, adres: `ul. ${id}`, miasto: 'Warszawa', lokalizacja_w_obiekcie: 'Hol',
   status_dostepnosci: { wartosc: v, powod: 'test', brakujace: [] }, znacznik_aktualnosci: 'aktualne', dane_przykladowe: true, odleglosc_m: 100, ...extra })
@@ -22,6 +25,10 @@ let calls
 beforeEach(() => { calls = []; vi.stubGlobal('fetch', vi.fn((url, opts) => { calls.push([url, opts]); return json({ items: [item('A', 'dostepny'), item('B', 'nieznany')], liczba: 2 }) })) })
 afterEach(() => vi.unstubAllGlobals())
 
+const full = (id, v, extra = {}) => item(id, v, { nazwa_dostawcy: 'Dostawca Demo', regon_dostawcy: '123456785', stan: 'nieznany', bariera_dostepu: 'nieznana',
+  dostepnosc: 'nieznana', ograniczenia_dostepu: 'nieznane', lokalizacja_w_obiekcie: 'Hol główny przy windzie', ...extra })
+const geo = (impl) => vi.stubGlobal('navigator', { ...navigator, geolocation: { getCurrentPosition: impl } })
+
 describe('MapPage', () => {
   it('pobiera i pokazuje listę z badge’ami statusu oraz baner danych demo', async () => {
     wrap(<MapPage />)
@@ -32,12 +39,77 @@ describe('MapPage', () => {
     expect(screen.getByText(/przykładowe i fikcyjne/)).toBeInTheDocument()
     expect(calls[0][0]).toContain('/api/v1/aed?')
   })
-  it('filtry trafiają do zapytania API', async () => {
-    wrap(<MapPage />, '/?dostepnosc_teraz=true&status=dostepny,nieznany&lat=52.2&lon=21&radius_m=1000')
+  it('filtry trafiają do zapytania API, ale nigdy promień ani pozycja – punkty nie są wycinane', async () => {
+    wrap(<MapPage />, '/?dostepnosc_teraz=true&status=dostepny,nieznany&lat=52.2&lon=21')
     await screen.findByText('ul. A, Warszawa')
-    const url = calls[0][0]
-    expect(url).toContain('dostepnosc_teraz=true'); expect(url).toContain('lat=52.2'); expect(url).toContain('radius_m=1000')
-    expect(decodeURIComponent(url)).toContain('status_dostepnosci=dostepny,nieznany'); expect(url).toContain('sort=odleglosc')
+    const url = decodeURIComponent(calls[0][0])
+    expect(url).toContain('dostepnosc_teraz=true'); expect(url).toContain('status_dostepnosci=dostepny,nieznany')
+    for (const forbidden of ['radius_m', 'lat=', 'lon=', 'sort=']) expect(url).not.toContain(forbidden)
+  })
+  it('wszystkie punkty są na mapie i liście także daleko od użytkownika; odległość jest tylko informacją i kolejnością', async () => {
+    fetch.mockImplementation(() => json({ liczba: 3, items: [item('KRK', 'dostepny', { lat: 50.06, lon: 19.94, adres: 'Rynek 1', miasto: 'Kraków' }),
+      item('WAW', 'dostepny'), item('GDA', 'nieznany', { lat: 54.35, lon: 18.65, adres: 'Długa 1', miasto: 'Gdańsk' })] }))
+    wrap(<MapPage />, '/?lat=52.2&lon=21')
+    await screen.findByText('ul. WAW, Warszawa')
+    expect(screen.getByTestId('map')).toHaveAttribute('data-count', '3')
+    const rows = within(screen.getByRole('list', { name: 'Lista punktów AED' })).getAllByRole('button')
+    expect(rows).toHaveLength(3)
+    expect(rows[0]).toHaveTextContent('ul. WAW'); expect(rows[0]).toHaveTextContent('0 m'); expect(rows[2]).toHaveTextContent(/km/)
+    expect(screen.getByText('3')).toBeInTheDocument() // licznik w panelu
+  })
+  it('bez zgody na lokalizację: komunikat, brak pól na współrzędne, mapa nadal pokazuje wszystkie punkty', async () => {
+    geo((_ok, fail) => fail({ code: 1 }))
+    wrap(<MapPage />)
+    expect(await screen.findByText(/Brak zgody na lokalizację/)).toBeInTheDocument()
+    expect(screen.getByText(/Lokalizacja niedostępna/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Szerokość|Długość/)).toBeNull()
+    await screen.findByText('ul. A, Warszawa')
+    expect(screen.getByTestId('map')).toHaveAttribute('data-count', '2')
+  })
+  it('GPS jest pobierany od razu, ale nie trafia do zapytania ani do adresu URL', async () => {
+    geo((ok) => ok({ coords: { latitude: 50.06, longitude: 19.94 } }))
+    wrap(<MapPage />)
+    await screen.findByText('ul. A, Warszawa')
+    expect(calls[0][0]).not.toContain('50.06'); expect(screen.getByText('Twoja lokalizacja (GPS)')).toBeInTheDocument()
+    expect(within(screen.getByRole('list', { name: 'Lista punktów AED' })).getAllByText(/km/)).toHaveLength(2)
+  })
+  it('wyszukiwarka zawęża listę (licznik „1 z 2”), ale markery na mapie zostają', async () => {
+    wrap(<MapPage />)
+    await screen.findByText('ul. A, Warszawa')
+    fireEvent.change(screen.getByLabelText(/Szukaj punktu/), { target: { value: 'ul. B' } })
+    const list = within(screen.getByRole('list', { name: 'Lista punktów AED' }))
+    expect(list.queryByText('ul. A, Warszawa')).toBeNull(); expect(list.getByText('ul. B, Warszawa')).toBeInTheDocument()
+    expect(screen.getByText(/z 2/)).toBeInTheDocument()
+    expect(screen.getByTestId('map')).toHaveAttribute('data-count', '2')
+  })
+  it('panel listy można ukryć i pokazać, licznik zostaje na przycisku', async () => {
+    wrap(<MapPage />)
+    await screen.findByText('ul. A, Warszawa')
+    fireEvent.click(screen.getByRole('button', { name: 'Ukryj listę punktów' }))
+    expect(screen.queryByRole('list', { name: 'Lista punktów AED' })).toBeNull()
+    const fab = screen.getByRole('button', { name: /Lista AED/ })
+    expect(fab).toHaveTextContent('2')
+    fireEvent.click(fab)
+    expect(screen.getByRole('list', { name: 'Lista punktów AED' })).toBeInTheDocument()
+  })
+  it('wybór punktu otwiera kafelek (miejsce w obiekcie, 4 aspekty, akcje) bez banera; × i Escape zamykają; brak danych jest neutralny', async () => {
+    fetch.mockImplementation((url) => json(String(url).includes('/aed/A') ? full('A', 'nieznany') : { items: [item('A', 'nieznany'), item('B', 'dostepny')], liczba: 2 }))
+    wrap(<MapPage />)
+    fireEvent.click(await screen.findByRole('button', { name: /ul\. A/ }))
+    const card = within(await screen.findByTestId('callout'))
+    expect(await card.findByText('Hol główny przy windzie')).toBeInTheDocument()
+    for (const label of ['Godziny', 'Dostęp do urządzenia', 'Ograniczenia', 'Stan urządzenia']) expect(card.getByText(label)).toBeInTheDocument()
+    expect(card.getByRole('link', { name: 'Nawiguj' })).toBeInTheDocument()
+    expect(card.getByRole('button', { name: 'Szczegóły' })).toBeInTheDocument(); expect(card.getByRole('button', { name: 'Zgłoś z terenu' })).toBeInTheDocument()
+    const pills = screen.getByTestId('callout').querySelectorAll('.aspects .badge')
+    expect(pills).toHaveLength(4); pills.forEach((p) => { expect(p).toHaveClass('unk'); expect(p).not.toHaveClass('bad') })
+    expect(screen.getByTestId('callout').querySelector('.alert.bad')).toBeNull()
+    fireEvent.click(card.getByRole('button', { name: 'Szczegóły' })); expect(card.getByText('Współrzędne')).toBeInTheDocument()
+    fireEvent.click(card.getByRole('button', { name: 'Zamknij kafelek punktu' }))
+    expect(screen.queryByTestId('callout')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /ul\. A/ })); await screen.findByTestId('callout')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByTestId('callout')).toBeNull())
   })
   it('pusta lista i błąd API mają czytelne komunikaty', async () => {
     fetch.mockImplementation(() => json({ items: [], liczba: 0 }))
@@ -47,6 +119,16 @@ describe('MapPage', () => {
     fetch.mockImplementation(() => json({ error: { code: 'INTERNAL_ERROR', message: 'Wewnętrzny błąd serwera.', details: [] } }, 500))
     wrap(<MapPage />)
     expect(await screen.findByText(/Nie udało się pobrać danych/)).toBeInTheDocument()
+  })
+})
+
+describe('listAllAed', () => {
+  it('pobiera kolejne strony, aż do wszystkich punktów (backend daje maks. 200 na stronę)', async () => {
+    const mk = (n, from) => Array.from({ length: n }, (_, i) => item(`P${from + i}`, 'nieznany'))
+    fetch.mockImplementation((url) => json(String(url).includes('offset=200') ? { items: mk(50, 200), liczba: 250 } : { items: mk(200, 0), liczba: 250 }))
+    const r = await listAllAed({})
+    expect(r.items).toHaveLength(250); expect(fetch).toHaveBeenCalledTimes(2)
+    expect(fetch.mock.calls[0][0]).toContain('limit=200'); expect(fetch.mock.calls[1][0]).toContain('offset=200')
   })
 })
 

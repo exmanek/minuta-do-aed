@@ -1,15 +1,24 @@
 :root {
-  --bg: #ffffff; --bg-alt: #f4f5f7; --text: #1b1f24; --muted: #4b5563; --border: #c7ccd4;
-  --brand: #b00020; --brand-text: #ffffff; --link: #0b4fa8; --focus: #0b57d0;
-  --ok: #0f6b2f; --ok-bg: #e3f4e8; --warn: #7a4a00; --warn-bg: #fff1d6;
-  --bad: #9b1c1c; --bad-bg: #fde4e4; --unk: #374151; --unk-bg: #e7e9ee; --info-bg: #e6eefb;
-  --radius: 8px; --gap: 16px; --touch: 44px;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #111418; --bg-alt: #1b2027; --text: #eef0f3; --muted: #aeb6c2; --border: #3a424d;
-    --brand: #ff8a9a; --brand-text: #1a0006; --link: #8ab4ff; --focus: #8ab4ff;
-    --ok: #7be09a; --ok-bg: #12331f; --warn: #ffd180; --warn-bg: #3a2a08;
-    --bad: #ff9a9a; --bad-bg: #3d1616; --unk: #d1d5db; --unk-bg: #2a303a; --info-bg: #14233d;
-  }
+  /* typografia */
+  --font-display: 'Archivo Black', 'Archivo', system-ui, sans-serif;
+  --font-sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* powierzchnie */
+  --bg: #f4f6fa; --surface: #ffffff; --surface-alt: #eef2f7; --glass: rgba(255, 255, 255, .9);
+  --line: #e2e8f0; --line-strong: #cbd5e1; --field-border: #64748b;
+  /* tekst (kontrast ≥ 4.5:1 na --bg i --surface) */
+  --text: #0f172a; --muted: #475569;
+  /* akcent ratunkowy i akcent danych */
+  --rescue: #e11d48; --rescue-dark: #be123c; --rescue-soft: #ffe4e6;
+  --data: #2563eb; --data-dark: #1d4ed8; --data-soft: #dbeafe;
+  --link: var(--data-dark); --focus: var(--data-dark);
+
+  /* statusy; „brak danych” (unk) jest neutralny, nie czerwony */
+  --ok: #166534; --ok-bg: #dcfce7; --warn: #92400e; --warn-bg: #fef3c7;
+  --bad: #991b1b; --bad-bg: #fee2e2; --unk: #334155; --unk-bg: #e2e8f0; --info: #1e40af; --info-bg: #dbeafe;
+
+  --radius: 12px; --radius-sm: 8px; --radius-lg: 18px; --touch: 44px; --topbar-h: 56px;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, .05);
+  --shadow-float: 0 12px 32px -8px rgba(15, 23, 42, .28), 0 2px 6px rgba(15, 23, 42, .08);
 }

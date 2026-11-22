@@ -10,7 +10,7 @@ export default function UrgentPanel({ aed, items, onSelect }) {
   const text = v === 'nieznany' ? 'Brak danych o dostępności tego punktu. To nie znaczy, że jest niedostępny – ale sprawdź inny punkt równolegle.'
     : v === 'niedostepny' ? 'Ten punkt jest teraz niedostępny.' : 'Dostęp do tego punktu jest ograniczony.'
   return (
-    <div className={`alert ${v === 'niedostepny' ? 'bad' : 'warn'}`} role="alert">
+    <div className={`alert ${v === 'niedostepny' ? 'bad' : v === 'nieznany' ? 'info' : 'warn'}`} role="alert">
       <strong>{text}</strong>
       {aed.status_dostepnosci?.powod && <p style={{ margin: '4px 0' }}>Powód: {aed.status_dostepnosci.powod}.</p>}
       {next ? (
