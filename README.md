@@ -54,6 +54,18 @@ cd backend && python scripts/seed_providers.py   # konta: 123456785 / 222222220 
 ```
 Przepływ API: `login` → `POST /provider/batches` (multipart: `files`, `meta`) → `PUT .../mapping` → `POST .../process` → `GET .../report` → (`.../duplicates/decisions`) → `POST .../commit` → `GET /aed`, `GET /export/*`. Pliki do prób: `backend/data/sample_sources/`.
 
+## Frontend – ekrany
+| Trasa | Dostęp | Co robi |
+|---|---|---|
+| `/` | publiczna | wyszukiwanie AED: GPS lub współrzędne, filtry (promień, tylko dostępne teraz, tylko aktualne, statusy), lista + mapa OSM (na telefonie zakładki Lista/Mapa), karta punktu z czterema aspektami dostępności, tryb pilny, zgłoszenia z terenu, nawigacja |
+| `/standard` | publiczna | tabele pól ze `/meta/schema` (pola rekordu, opis źródła, pola wyliczane), pobranie wzorca XLSX, instrukcja dla dostawcy |
+| `/dostawca/logowanie` | publiczna | logowanie REGON + hasło |
+| `/dostawca/agregacja` | dostawca | kreator: pliki + opis źródeł → mapowanie → raport walidacji → duplikaty → oświadczenia → zatwierdzenie → eksport |
+| `/dostawca/dodaj` | dostawca | formularz AED generowany ze schematu XLSX, walidacja na żywo, tryb edycji (`?aed=ID`) |
+| `/dostawca/punkty` | dostawca | własne punkty, historia zmian, wycofanie |
+
+Testy frontendu: `cd frontend && npm test` (vitest; logika, formularze, strony na zamockowanym API). Ograniczenia: brak automatycznych testów w prawdziwej przeglądarce (mapa Leaflet jest zamockowana w testach), brak geokodowania adresu (lokalizacja: GPS, współrzędne lub kliknięcie w mapę), tabela mapowania nie pokazuje przykładowych wartości z pliku (API ich nie zwraca).
+
 ## Stan prac
 Backend (Etapy 1–8) zaimplementowany i pokryty testami (`pytest`): import CSV/JSON/XLSX (kodowanie, separator, kontrola nagłówków), auto-mapowanie, walidacja (reguły AED-*), duplikaty z ręczną decyzją, zatwierdzenie z oświadczeniami, historia, logowanie dostawcy, zgłoszenia oddolne (osobna tabela), `status_dostepnosci`, eksport CSV/JSON/GeoJSON/ZIP + metryczka.
 Ograniczenia: weryfikacja dostawcy symulowana seedem; metryczka XML nie jest zwalidowana względem XSD (brak pliku); licencja/region/kategoria zbioru czekają na decyzję D9; limit zgłoszeń w pamięci procesu; geokodowania adresów brak (rekord bez współrzędnych nie przejdzie zatwierdzenia). Frontend: szkielet (mapa, panel importu i formularz do zrobienia).

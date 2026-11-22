@@ -1,8 +1,0 @@
-body { font-family: system-ui, sans-serif; margin: 0; color: #1a1a1a; }
-nav { display: flex; gap: 16px; padding: 12px 16px; background: #b00020; }
-nav a { color: #fff; text-decoration: none; }
-nav a.active { font-weight: bold; text-decoration: underline; }
-main { padding: 16px; max-width: 960px; margin: 0 auto; }
-.banner { background: #fff3cd; padding: 8px 16px; font-size: 14px; }
-.error { color: #b00020; }
-pre { background: #f4f4f4; padding: 12px; overflow: auto; }
