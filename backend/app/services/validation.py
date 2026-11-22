@@ -50,6 +50,9 @@ def validate_record(rec, schema, ref=None, prog_dni=365, today=None):
         if not (b["min_lat"] <= rec["lat"] <= b["max_lat"] and b["min_lon"] <= rec["lon"] <= b["max_lon"]):
             add("AED-COORD-002", "lat", "Współrzędne poza przybliżonym obszarem Polski.")
 
+    if "zamieniono_lat_lon" in (rec.get("_flagi") or []):
+        add("AED-COORD-003", "lat")
+
     for p in schema["pola"]:
         if p["typ"] == "slownik" and not _blank(rec.get(p["nazwa"])):
             allowed = schema["slowniki"].get(p["nazwa"], [])

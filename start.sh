@@ -14,6 +14,7 @@ if [ ! -d "$BACK/venv" ]; then
   "$BACK/venv/bin/pip" install -q -r "$BACK/requirements.txt"
 fi
 PY="$BACK/venv/bin/python"
+"$BACK/venv/bin/pip" install -q -r "$BACK/requirements.txt"   # idempotentne; dociąga nowe zależności (np. certifi)
 
 # --- dane demo (idempotentne; konta + 15 fikcyjnych punktów) ---
 ( cd "$BACK" && "$PY" scripts/seed_providers.py >/dev/null && "$PY" scripts/seed_demo.py >/dev/null )

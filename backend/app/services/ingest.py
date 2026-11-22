@@ -8,8 +8,9 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from ..errors import ApiError
+from .geo_parse import point_from
 
-ALLOWED = {".csv": "csv", ".json": "json", ".xlsx": "xlsx"}
+ALLOWED = {".csv": "csv", ".json": "json", ".geojson": "json", ".xlsx": "xlsx"}  # GeoJSON to JSON
 CSV_ENCODINGS = ("utf-8-sig", "cp1250", "iso-8859-2")
 SEPARATORS = (";", ",", "\t")
 
@@ -70,11 +71,29 @@ def _rows_from_table(table):
     return [h for h in dict.fromkeys(headers) if h], dup, rows
 
 
+def _unwrap_single_column(table, sep):
+    """Plik, w którym CAŁY wiersz jest jednym polem w cudzysłowie (spotykane w danych otwartych): parsujemy go ponownie.
+    Zwraca (table, separator) albo (None, None), gdy to nie ten przypadek."""
+    rows = [r for r in table if any(c.strip() for c in r)]
+    if len(rows) < 2 or any(len(r) != 1 for r in rows):
+        return None, None
+    head = rows[0][0]
+    inner = max(SEPARATORS, key=head.count)
+    if head.count(inner) < 1:
+        return None, None
+    return [next(csv.reader([r[0]], delimiter=inner)) for r in rows], inner
+
+
 def _parse_csv(raw):
     text, enc = decode_csv(raw)
     sep = detect_separator(text)
-    headers, dup, rows = _rows_from_table(list(csv.reader(io.StringIO(text), delimiter=sep)))
-    return {"kodowanie": enc, "separator": sep, "naglowki": headers, "powtorzone": dup, "wiersze": rows}
+    table, notes = list(csv.reader(io.StringIO(text), delimiter=sep)), []
+    unwrapped, inner = _unwrap_single_column(table, sep)
+    if unwrapped:
+        table, sep = unwrapped, inner
+        notes.append("Każdy wiersz pliku CSV był zapisany jako jedno pole w cudzysłowie – plik został rozpakowany i odczytany ponownie.")
+    headers, dup, rows = _rows_from_table(table)
+    return {"kodowanie": enc, "separator": sep, "naglowki": headers, "powtorzone": dup, "wiersze": rows, "uwagi": notes}
 
 
 def _parse_json(raw):
@@ -93,9 +112,9 @@ def _parse_json(raw):
         raise ApiError(422, "PARSE_ERROR", "JSON musi być listą obiektów.")
     rows = []
     for obj in data:
-        if obj.get("type") == "Feature":  # GeoJSON
-            coords = (obj.get("geometry") or {}).get("coordinates") or [None, None]
-            obj = {**(obj.get("properties") or {}), "lon": coords[0], "lat": coords[1]}
+        if obj.get("type") == "Feature":  # GeoJSON (współrzędne jako lista [lon, lat] albo obiekt {lat, long})
+            pt = point_from(obj.get("geometry"))
+            obj = {**(obj.get("properties") or {}), "lon": pt[1] if pt else None, "lat": pt[0] if pt else None}
         rows.append({str(k): (v if isinstance(v, (int, float)) or v is None else _cell(v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)))
                      for k, v in obj.items()})
     headers = list(dict.fromkeys(k for r in rows for k in r))
@@ -127,5 +146,6 @@ def parse_file(filename, raw):
     except Exception:
         raise ApiError(422, "PARSE_ERROR", f"Nie udało się odczytać pliku '{filename}'.")
     parsed["format"] = fmt
+    parsed.setdefault("uwagi", [])
     parsed["liczba_wierszy"] = len(parsed["wiersze"])
     return parsed

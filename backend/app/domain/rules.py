@@ -20,6 +20,8 @@ RULES = {
     "AED-DICT-001": (BLAD, "Wartość spoza słownika."),
     "AED-COORD-001": (BLAD, "Współrzędne nie są liczbami."),
     "AED-COORD-002": (OSTRZEZENIE, "Współrzędne poza przybliżonym obszarem Polski."),
+    "AED-COORD-003": (OSTRZEZENIE, "Wykryto odwrócone współrzędne – lat i lon zostały zamienione miejscami."),
+    "AED-COORD-004": (OSTRZEZENIE, "Punkt leży daleko od pozostałych punktów tego źródła – sprawdź współrzędne."),
     "AED-AVAIL-001": (OSTRZEZENIE, "Brak godzin dostępu, gdy dostepnosc = w_godzinach."),
     "AED-AVAIL-002": (OSTRZEZENIE, "Brak informacji o dostępności (to nie oznacza niedostępności)."),
     "AED-AVAIL-003": (OSTRZEZENIE, "Godziny w składni, której parser nie rozumie."),

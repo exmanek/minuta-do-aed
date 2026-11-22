@@ -28,6 +28,8 @@ Legenda statusu implementacji: ✅ działa, 🟡 szkielet/częściowo.
 | 422 | INVALID_REGON, DECLARATION_REQUIRED, VALIDATION_BLOCKING, HEADER_CHECK_FAILED, PARSE_ERROR, MERGE_FOREIGN_RECORD |
 | 429 | RATE_LIMITED |
 | 422 | INVALID_MAPPING (nieprawidłowe mapowanie kolumn) |
+| 502 | UPSTREAM_ERROR (portal dane.gov.pl niedostępny lub zwrócił błąd) |
+| 504 | UPSTREAM_TIMEOUT (portal dane.gov.pl nie odpowiedział w czasie) |
 | 501 | NOT_IMPLEMENTED (zarezerwowany; obecnie nieużywany) |
 | 500 | INTERNAL_ERROR |
 
@@ -165,3 +167,38 @@ Tylko rekordy zatwierdzone. `Content-Disposition: attachment`. JSON: `{ "items":
 
 ## Mocki dla frontendu
 Odpowiedzi powyżej są wzorcem do mocków. Dane demo na backendzie: `python scripts/seed_demo.py` (2 fikcyjne rekordy).
+
+## Import z portalu dane.gov.pl (✅, dostęp: D)
+
+Backend przeszukuje publiczne API portalu (`https://api.dane.gov.pl/1.4`, bez klucza) na poziomie **zasobów** i pobiera wyłącznie pliki hostowane przez portal (hosty `api.dane.gov.pl`/`dane.gov.pl`, także po przekierowaniach). Pobrane pliki trafiają do zwykłego przepływu partii (`mapping` → `process` → `commit`).
+
+### GET /provider/danegov/catalog?refresh=true|false
+Cache w pamięci 10 min; `refresh=true` wymusza ponowne pobranie. 200:
+```json
+{ "items": [ {
+    "dataset_id": "3624", "tytul": "Defibrylatory zlokalizowane w Mieście Krosno",
+    "strona_url": "https://dane.gov.pl/pl/dataset/3624,defibrylatory-zlokalizowane-w-miescie-krosno",
+    "wydawca": { "nazwa": "Urząd Miasta Krosna", "regon": "000526989", "miasto": "Krosno" },
+    "licencja": "CC0 1.0", "aktualizacja": "Nie dotyczy",
+    "zasob": { "id": "54632", "tytul": "…", "format": "csv", "url": "https://api.dane.gov.pl/media/resources/…csv", "rozmiar": 2787, "data": "2024-02-19" },
+    "inne_formaty": ["csv"], "mozna_importowac": true, "powod_pominiecia": null } ],
+  "pobrano": "2026-11-22T03:00:00+01:00", "zrodlo": "https://api.dane.gov.pl/1.4" }
+```
+Wybór zasobu w zbiorze: priorytet `geojson > csv > xlsx > json` (XML/GML pomijane). Zasób będący linkiem do strony zewnętrznej (np. Warszawa) ma `mozna_importowac: false` i `powod_pominiecia`.
+Błędy: 502 `UPSTREAM_ERROR`, 504 `UPSTREAM_TIMEOUT`.
+
+### POST /provider/danegov/import
+Request: `{ "zbiory": ["3624", "4581"] }` (1–10 identyfikatorów `dataset_id`). 201: jak `POST /provider/batches` (`batch_id`, `status: "wczytana"`, `zrodla[]`) oraz `pominiete: [{dataset_id, tytul, powod}]` (zbiory nieimportowalne lub z nieczytelnym plikiem – nie blokują pozostałych).
+Opis źródła ustawiany automatycznie: `nazwa = "dane.gov.pl #{dataset_id}: {tytuł}"` (stała – ponowny import **aktualizuje** te same rekordy), `url` = strona zbioru, `licencja` z portalu, `prawo_do_udostepniania = licencja_zrodla_pozwala`, `dysponent_nazwa`/`dysponent_regon` = wydawca z portalu, `zakres_referencyjny.stan_na` = data zasobu, `dane_przykladowe = false`. Data publikacji w portalu **nie** jest datą potwierdzenia aktualności.
+Błędy: 400 (zła lista), 422 `UNPROCESSABLE` (żaden zbiór nie nadaje się do importu; `details[]`), 502/504.
+
+### Nowe reguły walidacji
+| Kod | Poziom | Znaczenie |
+|---|---|---|
+| AED-COORD-003 | ostrzeżenie | wykryto odwrócone `lat`/`lon` i zamieniono je miejscami (np. nagłówek „Długość” przy wartościach szerokości) |
+| AED-COORD-004 | ostrzeżenie | punkt leży >50 km od mediany pozostałych punktów tego samego źródła (min. 4 punkty) |
+
+### Zmiany w odpowiedziach partii
+- `zrodla[].kontrola_naglowkow.uwagi[]` (nowe): informacje o przetwarzaniu poza mapowaniem 1:1, np. „Adres zostanie złożony z kolumn …”, „Współrzędne … zostaną odczytane z kolumny geometry”, „plik CSV został rozpakowany”.
+- Import akceptuje także pliki `.geojson` (traktowane jak JSON; współrzędne jako lista `[lon, lat]` lub obiekt `{lat, long}`).
+- `source_record_id` bierze się z kolumny `id`/`numer_id`/`nr_id`/`identyfikator` (po normalizacji nazwy), inaczej `wiersz-N`.

@@ -16,8 +16,8 @@ def create_app(config=None):
     register_error_handlers(app)
     db.init_app(app)
 
-    from .api import aed_public, export, meta, provider, provider_aed
-    for module in (meta, aed_public, provider, provider_aed, export):
+    from .api import aed_public, danegov, export, meta, provider, provider_aed
+    for module in (meta, aed_public, provider, provider_aed, danegov, export):
         app.register_blueprint(module.bp, url_prefix="/api/v1")
 
     @app.route("/api/<path:_rest>")

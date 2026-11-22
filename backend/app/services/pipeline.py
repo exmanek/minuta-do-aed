@@ -3,6 +3,7 @@ Zatwierdzenie w prototypie != eksport != publikacja w dane.gov.pl."""
 import csv
 import io
 import json
+import statistics
 from datetime import date
 
 from flask import current_app
@@ -13,6 +14,10 @@ from ..errors import ApiError
 from ..storage import repo
 from ..storage.db import get_db
 from . import dedupe, declarations, ingest, mapping, validation
+from .geo import haversine_m
+
+OUTLIER_KM = 50
+OUTLIER_MIN_POINTS = 4
 
 
 def _schema():
@@ -44,10 +49,16 @@ def create_batch(provider, files, metas):
             meta["zakres_json"] = _zakres_json(m.get("zakres_referencyjny"))
             meta["dane_przykladowe"] = _as_bool(m.get("dane_przykladowe"))
             sid = repo.upsert_source(provider["regon"], names[i], meta, p["format"], fname)
-            repo.add_batch_source(batch_id, sid, fname, {k: p[k] for k in
-                                  ("format", "kodowanie", "separator", "liczba_wierszy", "naglowki", "powtorzone")})
+            repo.add_batch_source(batch_id, sid, fname, {**{k: p[k] for k in
+                                  ("format", "kodowanie", "separator", "liczba_wierszy", "naglowki", "powtorzone")},
+                                  "uwagi": p.get("uwagi", [])})
+            id_col = next((h for h in p["naglowki"] if mapping.normalize_name(h) in mapping.ID_COLS), None)
+            seen = set()
             for n, row in enumerate(p["wiersze"], 1):
-                srid = str(row.get("aed_id") or row.get("id") or f"wiersz-{n}")
+                srid = str(row[id_col]).strip() if id_col and row.get(id_col) not in (None, "") else f"wiersz-{n}"
+                if srid in seen:  # powtórzony identyfikator w pliku -> rozróżniamy numerem wiersza
+                    srid = f"{srid}#{n}"
+                seen.add(srid)
                 repo.add_staged(batch_id, sid, srid, {"raw": row, "ref": f"{sid}#{n}"})
     return batch_id
 
@@ -65,7 +76,7 @@ def batch_view(batch):
             "dane_przykladowe": src["dane_przykladowe"], "licencja": src["licencja"],
             "prawo_do_udostepniania": src["prawo_do_udostepniania"], "dysponent_nazwa": src["dysponent_nazwa"],
             "zakres_referencyjny": src["zakres"],
-            "kontrola_naglowkow": mapping.header_check(info["naglowki"], info["powtorzone"], proposal, schema),
+            "kontrola_naglowkow": mapping.header_check(info["naglowki"], info["powtorzone"], proposal, schema, info.get("uwagi", [])),
             "proponowane_mapowanie": proposal,
             "zatwierdzone_mapowanie": profile if batch["status"] != "wczytana" else None})
     view = {"batch_id": batch["id"], "status": batch["status"], "eksport_wygenerowano": batch["eksport_wygenerowano"],
@@ -104,6 +115,23 @@ def _ref_issues(issues, srid):
     return [{**i, "aed_id": srid} for i in issues]
 
 
+def _flag_outliers(prepared):
+    """AED-COORD-004: punkt >50 km od mediany pozostałych punktów tego samego źródła (np. błędne współrzędne w pliku)."""
+    by_source = {}
+    for st, rec, _ in prepared:
+        if isinstance(rec.get("lat"), (int, float)) and isinstance(rec.get("lon"), (int, float)):
+            by_source.setdefault(st["source_id"], []).append(rec)
+    centers = {sid: (statistics.median(r["lat"] for r in recs), statistics.median(r["lon"] for r in recs))
+               for sid, recs in by_source.items() if len(recs) >= OUTLIER_MIN_POINTS}
+    for st, rec, issues in prepared:
+        c = centers.get(st["source_id"])
+        if c and isinstance(rec.get("lat"), (int, float)) and isinstance(rec.get("lon"), (int, float)):
+            km = haversine_m(c[0], c[1], rec["lat"], rec["lon"]) / 1000
+            if km > OUTLIER_KM:
+                issues.append(issue("AED-COORD-004", "lat", st["source_record_id"],
+                                    f"Punkt leży {km:.0f} km od środka pozostałych punktów tego źródła – sprawdź współrzędne."))
+
+
 def process_batch(batch, provider):
     if batch["status"] not in ("zmapowana", "przetworzona"):
         raise ApiError(409, "STATE_CONFLICT", "Najpierw zatwierdź mapowanie kolumn (PUT .../mapping).")
@@ -111,13 +139,17 @@ def process_batch(batch, provider):
     sources = {bs["source_id"]: repo.get_source(bs["source_id"]) for bs in repo.list_batch_sources(batch["id"])}
     src_issues = {sid: validation.validate_source(s, schema) for sid, s in sources.items()}
     profiles = {sid: repo.get_mapping(sid) for sid in sources}
-    items = []
+    items, prepared = [], []
+    for st in repo.list_staged(batch["id"]):
+        sid, srid, pl = st["source_id"], st["source_record_id"], st["payload"]
+        rec = mapping.build_record(pl["raw"], profiles[sid], schema)
+        rec = mapping.fill_system_fields(rec, sources[sid], provider)
+        issues = validation.validate_record(rec, schema, srid, cfg["PROG_AKTUALNOSCI_DNI"]) + _ref_issues(src_issues[sid], srid)
+        prepared.append((st, rec, issues))
+    _flag_outliers(prepared)
     with get_db():
-        for st in repo.list_staged(batch["id"]):
+        for st, rec, issues in prepared:
             sid, srid, pl = st["source_id"], st["source_record_id"], st["payload"]
-            rec = mapping.build_record(pl["raw"], profiles[sid], schema)
-            rec = mapping.fill_system_fields(rec, sources[sid], provider)
-            issues = validation.validate_record(rec, schema, srid, cfg["PROG_AKTUALNOSCI_DNI"]) + _ref_issues(src_issues[sid], srid)
             existing = repo.find_aed_by_source(sid, srid)
             pl.update({"rekord": rec, "istniejacy_aed_id": existing})
             repo.update_staged(st["rid"], pl, issues)

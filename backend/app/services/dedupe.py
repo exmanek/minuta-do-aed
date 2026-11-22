@@ -24,6 +24,7 @@ def find_candidates(items, nearby):
     """items: [{'ref','lat','lon','adres','istniejacy'}] (tylko z poprawnymi współrzędnymi).
     nearby(lat, lon, dlat, dlon) -> rekordy z bazy. Para ('ten sam rekord źródła') jest pomijana."""
     out = []
+    updating = {i["istniejacy"] for i in items if i.get("istniejacy")}  # rekordy z bazy aktualizowane w tej partii
     for i, a in enumerate(items):
         for b in items[i + 1:]:
             d = haversine_m(a["lat"], a["lon"], b["lat"], b["lon"])
@@ -31,8 +32,8 @@ def find_candidates(items, nearby):
                 out.append(_cand(a["ref"], b["ref"], "w_partii", d, addr_similarity(a.get("adres"), b.get("adres"))))
         dlon = _DLAT / max(cos(radians(a["lat"])), 0.01)
         for rec in nearby(a["lat"], a["lon"], _DLAT, dlon):
-            if rec["aed_id"] == a.get("istniejacy"):
-                continue
+            if rec["aed_id"] == a.get("istniejacy") or rec["aed_id"] in updating:
+                continue  # to ten sam rekord (aktualizacja) albo inny rekord tej partii; parę widać już jako „w partii”
             d = haversine_m(a["lat"], a["lon"], rec["lat"], rec["lon"])
             if d <= DIST_M:
                 out.append(_cand(a["ref"], rec["aed_id"], "wzgledem_bazy", d, addr_similarity(a.get("adres"), rec.get("adres"))))

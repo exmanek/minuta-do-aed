@@ -4,6 +4,8 @@ import { commitBatch, getBatch, processBatch, putMapping } from '../api/provider
 import { useSchema } from '../auth/SchemaContext.jsx'
 import ErrorSummary from '../components/common/ErrorSummary.jsx'
 import { LoadError, Loading } from '../components/common/Feedback.jsx'
+import DanegovImport from '../components/provider/DanegovImport.jsx'
+import Tabs from '../components/common/Tabs.jsx'
 import DeclarationBox, { declarationsComplete, emptyDeclarations } from '../components/provider/DeclarationBox.jsx'
 import DuplicatesReview from '../components/provider/DuplicatesReview.jsx'
 import ExportPanel from '../components/provider/ExportPanel.jsx'
@@ -28,6 +30,8 @@ export default function ProviderAggregationPage() {
   const [busy, setBusy] = useState(null)
   const [actionError, setActionError] = useState(null)
   const [commitResult, setCommitResult] = useState(null)
+  const [source, setSource] = useState('plik')
+  const [skipped, setSkipped] = useState([])
 
   useEffect(() => { if (batch) setMapping(mappingFromBatch(batch)) }, [batch?.batch_id, batch?.status]) // eslint-disable-line react-hooks/exhaustive-deps
   const fields = useMemo(() => (schema ? schema.pola.filter((p) => p.status !== 'wyliczane') : []), [schema])
@@ -51,7 +55,17 @@ export default function ProviderAggregationPage() {
       <h1>Import danych (panel dostawcy)</h1>
       <ol className="steps" aria-label="Postęp">{STEPS.map((s, i) => <li key={s} aria-current={i === current ? 'step' : undefined} className={i < current ? 'done' : ''}>{s}</li>)}</ol>
       <ErrorSummary error={actionError} />
-      {!batchId && <UploadPanel onCreated={(b) => setSp({ batch: b.batch_id })} />}
+      {!batchId && (
+        <>
+          <Tabs label="Źródło danych" value={source} onChange={setSource} tabs={[{ id: 'plik', label: 'Własne pliki' }, { id: 'portal', label: 'Z portalu dane.gov.pl' }]} />
+          {source === 'plik'
+            ? <UploadPanel onCreated={(b) => { setSkipped([]); setSp({ batch: b.batch_id }) }} />
+            : <DanegovImport onCreated={(b) => { setSkipped(b.pominiete || []); setSp({ batch: b.batch_id }) }} />}
+        </>
+      )}
+      {batchId && skipped.length > 0 && (
+        <div className="alert warn" role="status"><strong>Pominięto {skipped.length} zbiór(y):</strong>
+          <ul>{skipped.map((p) => <li key={p.dataset_id}>{p.tytul || p.dataset_id}: {p.powod}</li>)}</ul></div>)}
       {batchId && loading && !batch && <Loading />}
       <LoadError error={error} onRetry={reload} />
       {batch && (

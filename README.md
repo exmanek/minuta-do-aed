@@ -54,6 +54,20 @@ cd backend && python scripts/seed_providers.py   # konta: 123456785 / 222222220 
 ```
 Przepływ API: `login` → `POST /provider/batches` (multipart: `files`, `meta`) → `PUT .../mapping` → `POST .../process` → `GET .../report` → (`.../duplicates/decisions`) → `POST .../commit` → `GET /aed`, `GET /export/*`. Pliki do prób: `backend/data/sample_sources/`.
 
+## Dane z dane.gov.pl
+Aplikacja potrafi pobrać **prawdziwe** lokalizacje AED opublikowane w portalu dane.gov.pl (publiczne API, bez klucza). Stan na 22.11.2026: 5 zbiorów (Krosno, Przemyśl, Marki, Legionowo – razem 74 punkty – oraz Warszawa, której zasób jest tylko linkiem do strony i nie da się go pobrać przez portal).
+
+- **Z panelu:** `Panel dostawcy → Import → zakładka „Z portalu dane.gov.pl”` → wybierz zbiory → dalej zwykły kreator (mapowanie, raport, duplikaty, oświadczenia, zatwierdzenie).
+- **Ze skryptu (np. cron):**
+  ```bash
+  cd backend && source venv/bin/activate
+  HARVEST_PASSWORD=demo-haslo-1 python scripts/harvest_danegov.py --regon 123456785 --dry-run   # tylko pobierz i pokaż
+  HARVEST_PASSWORD=... python scripts/harvest_danegov.py --regon 123456785 --commit --accept-declarations --reject-invalid
+  ```
+  Zatwierdzenie wymaga jawnej flagi `--accept-declarations` (składasz oświadczenia dostawcy). Ponowne uruchomienie **aktualizuje** te same rekordy.
+- **Bezpieczeństwo:** weryfikacja TLS zawsze włączona (paczka CA z `certifi` – Python z python.org na macOS nie ma własnej), pobieranie tylko z hostów portalu (także po przekierowaniach), limit 10 MB, timeouty i ponowienia.
+- **Ograniczenia:** źródła nie zawierają dostępności, stanu ani potwierdzenia aktualności, więc punkty mają status „brak danych o dostępności” i „niepotwierdzone”. Dane źródłowe bywają błędne (w Markach współrzędne są odwrócone – wykrywamy i raportujemy – a jeden punkt leży w Krośnie – ostrzeżenie o odległości). Zbiory bez kolumny id są rozróżniane numerem wiersza (zmiana kolejności wierszy może utworzyć nowe rekordy zamiast aktualizacji). Brak harmonogramu w aplikacji – użyj crona.
+
 ## Frontend – ekrany
 | Trasa | Dostęp | Co robi |
 |---|---|---|

@@ -4,21 +4,22 @@ import difflib
 import re
 import unicodedata
 
-from ..errors import ApiError
+from ..domain.rules import POLAND_BBOX
+from .geo_parse import point_from
 
 # Pola uzupełniane przez system / z opisu źródła (nie muszą być w pliku)
 SYSTEM_FIELDS = {"aed_id", "nazwa_dostawcy", "regon_dostawcy", "dysponent_nazwa", "zrodlo_danych",
                  "zakres_referencyjny", "oswiadczenie_prawdziwosci"}
 PROVIDER_FIELDS = ("nazwa_dostawcy", "regon_dostawcy")  # zawsze z konta dostawcy, nie z pliku
 
-SYNONYMS = {
-    "aed_id": ["id", "identyfikator", "id_aed"],
+SYNONYMS = {  # kolejność na liście = priorytet (wcześniejszy synonim wygrywa, gdy kilka kolumn pasuje do jednego pola)
+    "aed_id": ["id", "numer_id", "nr_id", "identyfikator", "id_aed"],
     "lat": ["latitude", "szer_geo", "szerokosc", "szerokosc_geograficzna", "wsp_lat"],
     "lon": ["lng", "long", "longitude", "dl_geo", "dlugosc", "dlugosc_geograficzna", "wsp_lon"],
-    "adres": ["ulica", "street", "address", "addr_street", "adres_ulica"],
-    "kod_pocztowy": ["kod", "postcode", "zip", "kod_poczt"],
+    "adres": ["ulica", "street", "address", "addr_street", "adres_ulica", "nazwa_ulicy"],
+    "kod_pocztowy": ["postcode", "postal_code", "zip", "kod", "kod_poczt"],
     "miasto": ["miejscowosc", "city", "town"],
-    "lokalizacja_w_obiekcie": ["lokalizacja", "gdzie", "miejsce", "location", "umiejscowienie", "opis_lokalizacji"],
+    "lokalizacja_w_obiekcie": ["lokalizacja", "gdzie", "miejsce", "location", "umiejscowienie", "opis_lokalizacji", "name", "nazwa"],
     "godziny_dostepu": ["godziny", "godz", "opening_hours", "godziny_otwarcia"],
     "ograniczenia_dostepu": ["ograniczenia", "access"],
     "stan": ["status", "state", "condition", "stan_urzadzenia"],
@@ -27,6 +28,16 @@ SYNONYMS = {
     "dysponent_nazwa": ["dysponent", "wlasciciel", "operator"],
     "zrodlo_danych": ["zrodlo"],
 }
+
+# Kolumny pomocnicze: nie mapują się 1:1 na pole, ale są wykorzystywane (składanie adresu, współrzędne z geometrii)
+GEOM_COLS = ("geometry", "geom", "wkt", "geometria", "the_geom")
+STREET_COLS = ("nazwa_ulicy", "ulica", "street", "ul")
+NUMBER_COLS = ("nr_budynku", "numer_budynku", "home_number", "house_number", "nr_domu", "numer_domu", "nr_posesji")
+APT_COLS = ("nr_lokalu", "numer_lokalu", "apartment")
+PREFIX_COLS = ("cecha_ulicy",)
+PREFIXES = {"ulica": "ul.", "aleja": "al.", "plac": "pl.", "osiedle": "os."}
+AUX_COLS = set(GEOM_COLS) | set(STREET_COLS) | set(NUMBER_COLS) | set(APT_COLS) | set(PREFIX_COLS)
+ID_COLS = ("aed_id", "id", "numer_id", "nr_id", "identyfikator", "id_aed")
 
 VALUE_ALIASES = {
     "dostepnosc": {"24_7": "calodobowo", "24h": "calodobowo", "caly_dzien": "calodobowo", "w_godzinach_otwarcia": "w_godzinach"},
@@ -50,32 +61,34 @@ def mappable_fields(schema):
 
 
 def propose_mapping(headers, schema, profile=None):
-    """-> [{'kolumna','pole','pewnosc'}], pewnosc: wysoka | niska | brak. Zapisany profil ma pierwszeństwo."""
+    """-> [{'kolumna','pole','pewnosc'}], pewnosc: wysoka | niska | brak. Zapisany profil ma pierwszeństwo.
+    Gdy kilka kolumn pasuje do jednego pola, wygrywa ta o wyższym priorytecie synonimu (np. 'lokalizacja' przed 'nazwa')."""
     fields = mappable_fields(schema)
-    lookup = {normalize_name(f): f for f in fields}
+    lookup = {normalize_name(f): (f, -1) for f in fields}  # ranga -1 = dokładna nazwa pola
     for field, syns in SYNONYMS.items():
         if field in fields:
-            for s in syns:
-                lookup.setdefault(normalize_name(s), field)
-    result, used = {}, set()
-    for h in headers:  # 1) profil i dopasowanie dokładne / po synonimie
+            for rank, sname in enumerate(syns):
+                lookup.setdefault(normalize_name(sname), (field, rank))
+    result = {h: (None, "brak") for h in headers}
+    best = {}  # pole -> (ranga, kolumna)
+    for h in headers:
         if profile and h in profile:
-            pole = profile[h]
-            result[h] = (pole, "wysoka" if pole else "brak")
-        else:
-            pole = lookup.get(normalize_name(h))
-            result[h] = (pole, "wysoka") if pole else (None, "brak")
-        if result[h][0]:
-            if result[h][0] in used:
-                result[h] = (None, "brak")
-            else:
-                used.add(result[h][0])
-    for h in headers:  # 2) dopasowanie przybliżone (difflib, próg 0,85)
-        if result[h][0] is None and not (profile and h in profile):
+            if profile[h]:
+                result[h] = (profile[h], "wysoka")
+                best[profile[h]] = (-2, h)
+            continue
+        hit = lookup.get(normalize_name(h))
+        if hit and (hit[0] not in best or hit[1] < best[hit[0]][0]):
+            best[hit[0]] = (hit[1], h)
+    for field, (_, col) in best.items():
+        result[col] = (field, "wysoka")
+    used = set(best)
+    for h in headers:  # dopasowanie przybliżone (difflib, próg 0,85) dla niedopasowanych
+        if result[h][0] is None and not (profile and h in profile) and normalize_name(h) not in AUX_COLS:
             match = difflib.get_close_matches(normalize_name(h), list(lookup), n=1, cutoff=0.85)
-            if match and lookup[match[0]] not in used:
-                used.add(lookup[match[0]])
-                result[h] = (lookup[match[0]], "niska")
+            if match and lookup[match[0]][0] not in used:
+                used.add(lookup[match[0]][0])
+                result[h] = (lookup[match[0]][0], "niska")
     return [{"kolumna": h, "pole": result[h][0], "pewnosc": result[h][1]} for h in headers]
 
 
@@ -94,13 +107,33 @@ def validate_mapping(mapping, schema, headers):
     return problems
 
 
-def header_check(headers, powtorzone, mapping_list, schema):
+def _norm_headers(headers):
+    return {normalize_name(h): h for h in headers}
+
+
+def header_notes(headers):
+    """Uwagi o kolumnach pomocniczych wykorzystywanych poza mapowaniem 1:1 (wypisywane w kontroli nagłówków)."""
+    n, notes = _norm_headers(headers), []
+    geo = next((n[g] for g in GEOM_COLS if g in n), None)
+    if geo:
+        notes.append(f"Współrzędne (gdy nie zmapowano lat/lon) zostaną odczytane z kolumny „{geo}”.")
+    street, number = next((n[c] for c in STREET_COLS if c in n), None), next((n[c] for c in NUMBER_COLS if c in n), None)
+    if street and number:
+        notes.append(f"Adres zostanie złożony z kolumn: {street} + {number}" + (f" + {n['nr_lokalu']}" if "nr_lokalu" in n else "") + ".")
+    return notes
+
+
+def header_check(headers, powtorzone, mapping_list, schema, file_notes=()):
     mapped = {m["pole"] for m in mapping_list if m["pole"]}
+    if any(g in _norm_headers(headers) for g in GEOM_COLS):
+        mapped |= {"lat", "lon"}  # współrzędne wyliczymy z geometrii
     required = [p["nazwa"] for p in schema["pola"]
                 if p["status"] in ("wymagane", "warunkowo_wymagane") and p["nazwa"] not in SYSTEM_FIELDS]
+    if "adres" in mapped:
+        mapped |= {"miasto", "kod_pocztowy"}  # próbujemy wyodrębnić je z adresu; brak zgłosi walidacja per rekord (AED-REQ-002)
     return {"brakujace": [f for f in required if f not in mapped],
-            "nadmiarowe": [m["kolumna"] for m in mapping_list if not m["pole"]],
-            "powtorzone": powtorzone}
+            "nadmiarowe": [m["kolumna"] for m in mapping_list if not m["pole"] and normalize_name(m["kolumna"]) not in AUX_COLS],
+            "powtorzone": powtorzone, "uwagi": list(file_notes) + header_notes(headers)}
 
 
 def _num(v):
@@ -121,16 +154,63 @@ def _canon(field, value, schema):
     return VALUE_ALIASES.get(field, {}).get(n, value)
 
 
+def _in_poland(lat, lon):
+    b = POLAND_BBOX
+    return isinstance(lat, (int, float)) and isinstance(lon, (int, float)) and b["min_lat"] <= lat <= b["max_lat"] and b["min_lon"] <= lon <= b["max_lon"]
+
+
+def _first(norm_row, names):
+    for n in names:
+        v = norm_row.get(n)
+        if v not in (None, ""):
+            return str(v).strip()
+    return None
+
+
+def _compose_address(rec, norm_row):
+    street, number = _first(norm_row, STREET_COLS), _first(norm_row, NUMBER_COLS)
+    if not street or not number:
+        return
+    current = rec.get("adres")
+    if current and current != street and re.search(r"\d", current):
+        return  # mapowany adres już zawiera numer
+    prefix = _first(norm_row, PREFIX_COLS)
+    prefix = PREFIXES.get(normalize_name(prefix), prefix) if prefix else None
+    apt = _first(norm_row, APT_COLS)
+    rec["adres"] = " ".join(x for x in (prefix, street, number + (f"/{apt}" if apt else "")) if x)
+
+
+def _split_address(rec):
+    """„ul. Jasna, 38-400 Krosno” -> adres, kod_pocztowy, miasto (tylko uzupełnia puste pola)."""
+    m = re.match(r"^(.*?),\s*(\d{2}-\d{3})\s+(.+)$", rec.get("adres") or "")
+    if m:
+        rec["adres"] = m.group(1).strip()
+        rec["kod_pocztowy"] = rec.get("kod_pocztowy") or m.group(2)
+        rec["miasto"] = rec.get("miasto") or m.group(3).strip()
+
+
 def build_record(row, mapping, schema):
-    """Wiersz źródła -> rekord z nazwami pól wzorca (tylko zmapowane kolumny), wartości przetłumaczone."""
-    rec = {}
+    """Wiersz źródła -> rekord z nazwami pól wzorca (zmapowane kolumny + kolumny pomocnicze), wartości przetłumaczone.
+    Zmiany „naprawcze” (zamiana lat/lon) są oznaczane w rec['_flagi'] i raportowane w walidacji."""
+    rec, flags = {}, []
     for col, pole in mapping.items():
         if pole and col in row:
             v = row[col]
             rec[pole] = v.strip() or None if isinstance(v, str) else v
+    norm_row = {normalize_name(k): v for k, v in row.items()}
     for f in ("lat", "lon"):
         if rec.get(f) is not None:
             rec[f] = _num(rec[f])
+    if rec.get("lat") in (None, "") or rec.get("lon") in (None, ""):  # współrzędne z kolumny geometrii
+        pt = next((point_from(norm_row[g]) for g in GEOM_COLS if norm_row.get(g)), None)
+        if pt:
+            rec["lat"], rec["lon"] = pt
+    lat, lon = rec.get("lat"), rec.get("lon")
+    if not _in_poland(lat, lon) and _in_poland(lon, lat):  # odwrócone lat/lon (np. nagłówek „Długość” przy wartościach lat)
+        rec["lat"], rec["lon"] = lon, lat
+        flags.append("zamieniono_lat_lon")
+    _compose_address(rec, norm_row)
+    _split_address(rec)
     for f in UNKNOWN:
         if rec.get(f) is not None:
             rec[f] = _canon(f, rec[f], schema)
@@ -144,6 +224,8 @@ def build_record(row, mapping, schema):
     for f, unknown in UNKNOWN.items():
         if not rec.get(f):
             rec[f] = unknown
+    if flags:
+        rec["_flagi"] = flags
     return rec
 
 

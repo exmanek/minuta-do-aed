@@ -17,6 +17,7 @@ export default function MappingTable({ source, fields, value, onChange }) {
   return (
     <section className="card" aria-label={`Mapowanie źródła ${source.nazwa}`}>
       <h3 style={{ marginTop: 0 }}>{source.nazwa} <span className="muted small">({source.nazwa_pliku}, {source.format.toUpperCase()}{source.kodowanie ? `, ${source.kodowanie}` : ''}{source.separator ? `, separator „${source.separator}”` : ''}, wierszy: {source.liczba_wierszy})</span></h3>
+      {kc.uwagi?.length > 0 && <div className="alert info" role="note"><ul>{kc.uwagi.map((u) => <li key={u}>{u}</li>)}</ul></div>}
       {(kc.brakujace.length > 0 || kc.nadmiarowe.length > 0 || kc.powtorzone.length > 0) && (
         <div className="alert warn" role="status">
           {kc.brakujace.length > 0 && <p>Brakujące pola wymagane (po zmapowaniu): <strong>{kc.brakujace.join(', ')}</strong></p>}
