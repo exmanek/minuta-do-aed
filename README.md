@@ -9,6 +9,13 @@ Kontrakt API: [docs/api-contract.md](docs/api-contract.md). Wszystkie dane demo 
 - `frontend/` – React, React Router, Vite (`src/api`, `src/pages`, `src/components`, `src/auth`)
 - `docs/api-contract.md` – wspólny kontrakt
 
+## Szybki start – jedna komenda
+```bash
+./start.sh            # dev: backend :5000 + frontend :5173 (Ctrl+C zatrzymuje oba)
+./start.sh --build    # buduje frontend i uruchamia tylko Flaska na :5000 (jeden adres)
+```
+Skrypt sam tworzy venv, instaluje zależności, zakłada konta demo i 15 fikcyjnych punktów AED. Konto: REGON `123456785`, hasło `demo-haslo-1`.
+
 ## Uruchomienie (dev) – dwa terminale
 Wymagane: Python 3.11+, Node 18+.
 
