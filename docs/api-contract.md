@@ -1,7 +1,7 @@
 # Kontrakt API – Misja AED (v1)
 
 Źródło: Dokumentacja techniczna v2 (pkt 3.4, 5) i decyzje techniczne. **Zmiany kontraktu tylko po uzgodnieniu frontend ↔ backend.**
-Legenda statusu implementacji: ✅ działa, 🟡 szkielet (zwraca `501 NOT_IMPLEMENTED` w poprawnym formacie błędu).
+Legenda statusu implementacji: ✅ działa, 🟡 szkielet/częściowo.
 
 ## Zasady wspólne
 - Prefiks `/api/v1`, JSON UTF-8, daty ISO 8601 (`RRRR-MM-DD` lub datetime z offsetem).
@@ -27,7 +27,8 @@ Legenda statusu implementacji: ✅ działa, 🟡 szkielet (zwraca `501 NOT_IMPLE
 | 415 | UNSUPPORTED_FORMAT (tylko CSV/JSON/XLSX) |
 | 422 | INVALID_REGON, DECLARATION_REQUIRED, VALIDATION_BLOCKING, HEADER_CHECK_FAILED, PARSE_ERROR, MERGE_FOREIGN_RECORD |
 | 429 | RATE_LIMITED |
-| 501 | NOT_IMPLEMENTED (tylko na czas budowy) |
+| 422 | INVALID_MAPPING (nieprawidłowe mapowanie kolumn) |
+| 501 | NOT_IMPLEMENTED (zarezerwowany; obecnie nieużywany) |
 | 500 | INTERNAL_ERROR |
 
 Walidacja danych jako *wynik* (raport) zwraca 200; 422 tylko gdy operacja nie może się wykonać z powodu wyników (np. commit).
@@ -40,15 +41,37 @@ Walidacja danych jako *wynik* (raport) zwraca 200; 422 tylko gdy operacja nie mo
 | GET /meta/schema | P | ✅ | pola, statusy, typy, słowniki z XLSX |
 | GET /aed | P | ✅ | lista zatwierdzonych AED |
 | GET /aed/{id} | P | ✅ | szczegóły AED |
-| POST /provider/login | P | 🟡 | logowanie (REGON sprawdzany składniowo już teraz) |
-| POST /provider/batches | D | 🟡 | wczytanie plików (multipart) |
-| GET /provider/batches/{id} | D | 🟡 | stan partii |
-| POST /provider/batches/{id}/process | D | 🟡 | mapowanie wartości, walidacja |
-| POST /provider/batches/{id}/commit | D | 🟡 | zatwierdzenie z oświadczeniami |
+| POST /provider/login | P | ✅ | logowanie (REGON sprawdzany składniowo już teraz) |
+| POST /provider/batches | D | ✅ | wczytanie plików (multipart) |
+| GET /provider/batches/{id} | D | ✅ | stan partii |
+| POST /provider/batches/{id}/process | D | ✅ | mapowanie wartości, walidacja |
+| POST /provider/batches/{id}/commit | D | ✅ | zatwierdzenie z oświadczeniami |
 | GET /export/aed.csv | P | ✅ | CSV (UTF-8 z BOM, separator `;`, kolumny w kolejności z XLSX) |
 | GET /export/aed.json | P | ✅ | JSON |
 
-Dalsze endpointy (mapping, report, duplicates, export partii, /provider/aed/*, reports, geojson, metadata) – wg dokumentacji v2 pkt 5, dodawane iteracyjnie.
+### Pozostałe endpointy (wszystkie ✅)
+| Metoda i ścieżka | Dostęp | Uwagi |
+|---|---|---|
+| GET /meta/oswiadczenie | P | 3 oświadczenia, `wersja` (obecnie `v1`), `robocza: true` |
+| GET /standard/template.xlsx | P | pobranie wzorca XLSX |
+| GET /provider/me, GET /provider/sources | D | profil i źródła dostawcy |
+| PUT /provider/batches/{id}/mapping | D | body `{"mapowanie": {zrodlo_id: {kolumna: pole\|null}}}` → `{status: "zmapowana"}`; 422 `INVALID_MAPPING` |
+| GET /provider/batches/{id}/report | D | query `poziom` (blad\|ostrzezenie), `format` (json\|csv); 409 gdy partia nieprzetworzona |
+| GET /provider/batches/{id}/duplicates | D | `items[]`: `aed_a`, `aed_b`, `typ` (w_partii\|wzgledem_bazy), `pewnosc`, `odleglosc_m`, `podobienstwo_adresu`, `decyzja`, `karta_a`, `karta_b`, `wlasciciel_b`, `wlasny_rekord_b` |
+| POST /provider/batches/{id}/duplicates/decisions | D | `{"decyzje":[{"aed_a","aed_b","decyzja":"scal\|zostaw_oba"}]}`; 422 `MERGE_FOREIGN_RECORD`; domyślnie nic nie jest scalane |
+| GET /provider/batches/{id}/export | D | query `format` (csv\|json\|geojson\|zip); po `commit`, ustawia `eksport_wygenerowano` |
+| GET /provider/aed | D | własne punkty (w tym wycofane, pole `status`) |
+| POST /provider/aed/validate | D | `{problemy:[...], mozna_zapisac}` – bez zapisu |
+| POST /provider/aed, PUT/DELETE /provider/aed/{id} | D | body: pola rekordu + `oswiadczenie_prawdziwosci`, `oswiadczenie_prawa_do_udostepniania`, `wersja_tresci`, `potwierdzam_aktualnosc`; DELETE = status `wycofany` |
+| GET /provider/aed/{id}/history | D | `{historia:[...], deklaracje:[...]}` (tylko odczyt) |
+| GET /aed/{id}/reports, POST /aed/{id}/reports | P | zgłoszenia z terenu; typy: zamkniete_na_klucz, potwierdzam_obecnosc, brak_urzadzenia, uszkodzone; komentarz ≤300; 5/h na IP (429) |
+| GET /export/aed.geojson, zrodla.csv, aed_zrodla.csv, metadata.json, metadata.xml | P | `metadata.*` to wersja robocza (licencja zbioru, region, kategoria: decyzja D9); XML nie jest zwalidowany względem XSD 1.13 (brak pliku XSD w repo) |
+
+### Reguły, o których frontend musi wiedzieć
+- `GET /aed` zwraca tylko rekordy zatwierdzone. Filtry: `lat`+`lon`, `radius_m`, `bbox`, `status_dostepnosci` (lista po przecinku), `dostepnosc_teraz` (pomija tylko `niedostepny`), `tylko_aktualne`, `sort=odleglosc`, `limit`, `offset`. Błędne parametry: 400.
+- `status_dostepnosci` liczy backend z czterech aspektów (godziny, bariera, ograniczenia, stan) w strefie Europe/Warsaw; brak informacji = `nieznany`. W `GET /aed/{id}` jest też `zrodla_skladowe`; `sygnaly` pochodzą ze zgłoszeń i nie wpływają na status.
+- Nazwa źródła (`meta[].nazwa`, domyślnie nazwa pliku) jest stabilna między partiami: ponowny import tego samego źródła aktualizuje rekordy po (źródło, `aed_id`/numer wiersza) i **nie obniża** istniejącej daty potwierdzenia.
+- Eksport CSV: kolumny = pola z XLSX, wartości `tak_nie` jako `tak`/`nie`. JSON/GeoJSON dodają `znacznik_aktualnosci`, `liczba_zrodel`, `zrodla_skladowe`, `dane_przykladowe`. Gdy jakikolwiek rekord jest demo, nazwa pliku ma przyrostek `_przykladowe`, a tytuł metryczki prefiks „[PRZYKŁADOWE]”.
 
 ### GET /health → 200
 ```json
@@ -100,7 +123,7 @@ Docelowa odpowiedź 200:
 { "token": "<podpisany-token>", "wazny_do": "2026-11-22T05:12:00+01:00",
   "dostawca": { "regon": "123456785", "nazwa": "Dostawca Demo 1", "status_weryfikacji": "zweryfikowany" } }
 ```
-Błędy: 400 brak pól; 422 `INVALID_REGON` (długość/suma kontrolna); 401 `INVALID_CREDENTIALS`; 403 `PROVIDER_NOT_VERIFIED`. **Obecnie:** po poprawnej składni zwraca 501.
+Błędy: 400 brak pól; 422 `INVALID_REGON` (długość/suma kontrolna); 401 `INVALID_CREDENTIALS`; 403 `PROVIDER_NOT_VERIFIED`. Konta demo: `python scripts/seed_providers.py` (hasło demo w README).
 
 ### POST /provider/batches (multipart)
 Pola: `files` (powtarzane, 1–10; .csv/.json/.xlsx), `meta` (JSON: tablica opisów źródeł w kolejności plików: `nazwa, url, licencja, prawo_do_udostepniania, podstawa_prawa_opis, dysponent_nazwa, dysponent_regon, zakres_referencyjny, dane_przykladowe`).

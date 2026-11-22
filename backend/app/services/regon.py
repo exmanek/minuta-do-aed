@@ -14,3 +14,9 @@ def is_valid_regon_format(regon):
         s14 = sum(a * b for a, b in zip(d, _W14)) % 11 % 10
         return d[13] == s14
     return True
+
+
+def make_regon9(first8):
+    """Pomocnicze (seed/testy): dopisuje cyfrę kontrolną do 8 cyfr. Wynik ma poprawny FORMAT, nie jest prawdziwym podmiotem."""
+    d = [int(c) for c in first8]
+    return first8 + str(sum(a * b for a, b in zip(d, _W9)) % 11 % 10)

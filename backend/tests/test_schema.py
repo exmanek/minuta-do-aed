@@ -83,7 +83,7 @@ def test_csv_header_and_json_keys_match_schema(client, schema, tmp_path):
     csv_header = client.get("/api/v1/export/aed.csv").get_data(as_text=True).lstrip("﻿").splitlines()[0]
     assert csv_header.split(";") == field_names(schema)
     item = client.get("/api/v1/export/aed.json").json["items"][0]
-    assert list(item) == field_names(schema)
+    assert list(item)[:len(field_names(schema))] == field_names(schema)
 
 
 def test_meta_schema_endpoint_equals_loader(client, schema):

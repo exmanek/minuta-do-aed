@@ -41,10 +41,15 @@ cd ../backend && python run.py   # Flask serwuje frontend/dist + /api/v1 na :500
 `backend/data/standard/Wzorcowy_zakres_danych_AED.xlsx` jest źródłem prawdy o polach (`domain/schema.py` czyta zakładki „Opis pól” i „Słowniki”).
 **Wzorzec v0.2 jest generowany skryptem** ( `backend/scripts/build_standard_xlsx.py`).
 
+## Konta demo i przepływ
+```bash
+cd backend && python scripts/seed_providers.py   # konta: 123456785 / 222222220 (zweryfikowane), 333333330 (nie); hasło: demo-haslo-1
+```
+Przepływ API: `login` → `POST /provider/batches` (multipart: `files`, `meta`) → `PUT .../mapping` → `POST .../process` → `GET .../report` → (`.../duplicates/decisions`) → `POST .../commit` → `GET /aed`, `GET /export/*`. Pliki do prób: `backend/data/sample_sources/`.
+
 ## Stan prac
-Działa: health, `/meta/schema`, `/aed`, `/aed/{id}`, eksport CSV/JSON (z SQLite), format błędów, REGON (składnia), `znacznik_aktualnosci`, serwowanie `dist`.
-Szkielet (501): logowanie, partie (upload/process/commit).
-Nie zaimplementowano: import, mapowanie, walidacja, deduplikacja, dostępność (`status_dostepnosci` = „nieznany”), mapa Leaflet, oświadczenia, historia, zgłoszenia, GeoJSON/XML.
+Backend (Etapy 1–8) zaimplementowany i pokryty testami (`pytest`): import CSV/JSON/XLSX (kodowanie, separator, kontrola nagłówków), auto-mapowanie, walidacja (reguły AED-*), duplikaty z ręczną decyzją, zatwierdzenie z oświadczeniami, historia, logowanie dostawcy, zgłoszenia oddolne (osobna tabela), `status_dostepnosci`, eksport CSV/JSON/GeoJSON/ZIP + metryczka.
+Ograniczenia: weryfikacja dostawcy symulowana seedem; metryczka XML nie jest zwalidowana względem XSD (brak pliku); licencja/region/kategoria zbioru czekają na decyzję D9; limit zgłoszeń w pamięci procesu; geokodowania adresów brak (rekord bez współrzędnych nie przejdzie zatwierdzenia). Frontend: szkielet (mapa, panel importu i formularz do zrobienia).
 
 ## Podział pracy
 - **Frontend** – tylko `frontend/`; kontrakt z `docs/api-contract.md`, mocki dozwolone. Mapa (react-leaflet), filtry, karta AED, panel importu, raport walidacji.

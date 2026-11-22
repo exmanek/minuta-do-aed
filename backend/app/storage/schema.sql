@@ -55,3 +55,9 @@ CREATE TABLE IF NOT EXISTS field_reports (
   id INTEGER PRIMARY KEY AUTOINCREMENT, aed_id TEXT NOT NULL, typ TEXT NOT NULL, komentarz TEXT,
   utworzono TEXT NOT NULL, ip_hash TEXT
 );
+-- Opis źródła w konkretnej partii (format, kodowanie, nagłówki) – potrzebny między wczytaniem a przetworzeniem.
+CREATE TABLE IF NOT EXISTS batch_sources (
+  batch_id TEXT NOT NULL REFERENCES batches(id), source_id TEXT NOT NULL REFERENCES sources(id),
+  nazwa_pliku TEXT, info_json TEXT NOT NULL,
+  PRIMARY KEY (batch_id, source_id)
+);

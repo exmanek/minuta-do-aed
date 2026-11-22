@@ -63,7 +63,7 @@ def test_regon():
     assert not is_valid_regon_format("abc")
 
 
-def test_login_validation_and_stub(client):
+def test_login_validation(client):
     assert client.post(f"{CFG}/provider/login", json={"regon": "123456789", "haslo": "x"}).json["error"]["code"] == "INVALID_REGON"
-    assert client.post(f"{CFG}/provider/login", json={"regon": "123456785", "haslo": "x"}).status_code == 501
+    assert client.post(f"{CFG}/provider/login", json={"regon": "123456785", "haslo": "x"}).status_code == 401
     assert client.post(f"{CFG}/provider/login", data="zle").status_code == 400
