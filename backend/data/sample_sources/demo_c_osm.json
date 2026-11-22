@@ -1,0 +1,18 @@
+[
+ {
+  "latitude": 54.352,
+  "longitude": 18.6466,
+  "street": "ul. Demo 1",
+  "city": "Gdańsk",
+  "opening_hours": "24/7",
+  "access": "customers"
+ },
+ {
+  "latitude": 51.1079,
+  "longitude": 17.0385,
+  "street": "ul. Demo 2",
+  "city": "Wrocław",
+  "opening_hours": "Mo-Su 09:00-21:00",
+  "access": "yes"
+ }
+]

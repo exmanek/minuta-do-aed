@@ -16,7 +16,8 @@ def test_schema_from_xlsx(client):
     r = client.get(f"{CFG}/meta/schema")
     assert r.status_code == 200
     names = [p["nazwa"] for p in r.json["pola"]]
-    assert "lat" in names and "dostepnosc" in names
+    assert "lat" in names and "lokalizacja_w_obiekcie" in names
+    assert r.json["zrodlo_pola"] and r.json["pola_wyliczane"]
     assert "calodobowo" in r.json["slowniki"]["dostepnosc"]
 
 

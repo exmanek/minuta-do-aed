@@ -1,0 +1,17 @@
+{
+ "status": "przetworzona",
+ "podsumowanie": {
+  "rekordy": 42,
+  "bez_bledow": 37,
+  "z_ostrzezeniami": 9,
+  "z_bledami": 5,
+  "kandydaci_duplikatow": {
+   "w_partii": 2,
+   "wzgledem_bazy": 3
+  },
+  "zaktualizowane_istniejace": 4,
+  "niepotwierdzone_lub_do_odswiezenia": 6
+ },
+ "mozna_zatwierdzic": false,
+ "powod": "5 rekordów z błędami blokującymi; użyj odrzuc_bledne lub popraw dane"
+}

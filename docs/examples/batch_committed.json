@@ -1,0 +1,11 @@
+{
+ "status": "zatwierdzona",
+ "zatwierdzone": 37,
+ "odrzucone": 5,
+ "scalone": 2,
+ "publikacja_dane_gov_pl": "nie_opublikowano_przez_prototyp",
+ "eksport": {
+  "csv": "/api/v1/export/aed.csv",
+  "json": "/api/v1/export/aed.json"
+ }
+}

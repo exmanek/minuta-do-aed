@@ -1,0 +1,15 @@
+{
+ "error": {
+  "code": "VALIDATION_BLOCKING",
+  "message": "Partia zawiera błędy blokujące, zatwierdzenie niemożliwe.",
+  "details": [
+   {
+    "aed_id": "AED-0007",
+    "pole": "lat",
+    "regula": "AED-COORD-001",
+    "poziom": "blad",
+    "komunikat": "Brak współrzędnych."
+   }
+  ]
+ }
+}

@@ -1,0 +1,41 @@
+{
+ "batch_id": "b_01",
+ "status": "wczytana",
+ "zrodla": [
+  {
+   "zrodlo_id": "s_01",
+   "nazwa_pliku": "demo_a.csv",
+   "format": "csv",
+   "kodowanie": "utf-8",
+   "separator": ";",
+   "liczba_wierszy": 12,
+   "dane_przykladowe": true,
+   "kontrola_naglowkow": {
+    "brakujace": [
+     "dostepnosc"
+    ],
+    "nadmiarowe": [
+     "kolumna_x"
+    ],
+    "powtorzone": []
+   },
+   "proponowane_mapowanie": [
+    {
+     "kolumna": "szer_geo",
+     "pole": "lat",
+     "pewnosc": "wysoka"
+    },
+    {
+     "kolumna": "godz",
+     "pole": "godziny_dostepu",
+     "pewnosc": "niska"
+    },
+    {
+     "kolumna": "kolumna_x",
+     "pole": null,
+     "pewnosc": "brak"
+    }
+   ]
+  }
+ ]
+}
